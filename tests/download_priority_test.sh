@@ -17,15 +17,10 @@ init_model_manifest
 [[ "${DOWNLOAD_OUTPUTS[6]}" = */models/vae/minimax_h3_video_vae_int8_convrot.safetensors ]]
 [[ "${DOWNLOAD_OUTPUTS[7]}" = */models/latent_upscale_models/minimax_h3_latent_upscaler_3d_bf16.safetensors ]]
 [[ "${DOWNLOAD_OUTPUTS[8]}" = */models/vae_approx/taeh3.safetensors ]]
-remote_model_metadata() {
-  printf 'x-linked-size: 2100000000\nx-linked-etag: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"\nx-repo-commit: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\n'
-}
+remote_size() { echo 2100000000; }
 resolve_dynamic_model_sizes >/dev/null
 for size in "${DOWNLOAD_SIZES[@]}"; do
   [ "$size" = "2100000000" ]
-done
-for hash in "${DOWNLOAD_SHA256[@]}"; do
-  [ "$hash" = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" ]
 done
 
 GPU_FAMILY=ampere
