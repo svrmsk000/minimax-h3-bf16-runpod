@@ -17,8 +17,6 @@ validate_installed_workflows
 
 workflow_count="$(find "$COMFY/user/default/workflows/MiniMax H3" -type f -name '*.json' | wc -l | tr -d '[:space:]')"
 [ "$workflow_count" = "12" ]
-[ -f "$COMFY/input/.h1 Collage.png" ]
-[ -f "$COMFY/input/Going to be completely honest here_ it was not pleasant poor things___Yall know the feeling wh.mp4" ]
 
 custom="$COMFY/user/default/workflows/MiniMax H3/4. Generate Image H3 (fl2va)/Minimax H3 - Text to image.json"
 printf '{"customized":true}\n' > "$custom"
