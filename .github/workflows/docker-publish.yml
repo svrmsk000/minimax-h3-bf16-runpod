@@ -26,11 +26,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - family: ada
-            cuda_arch: "8.9"
-            sage_major: "2"
-            sage_version: "2.2.0"
-            comfy_sage3: "0"
           - family: blackwell
             cuda_arch: "12.0"
             sage_major: "3"
