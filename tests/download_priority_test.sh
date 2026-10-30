@@ -18,14 +18,14 @@ init_model_manifest
 [[ "${DOWNLOAD_OUTPUTS[7]}" = */models/latent_upscale_models/minimax_h3_latent_upscaler_3d_bf16.safetensors ]]
 [[ "${DOWNLOAD_OUTPUTS[8]}" = */models/vae_approx/taeh3.safetensors ]]
 remote_model_metadata() {
-  printf '2100000000|%064d|%040d\\n' 0 0 | tr '0' 'a' | sed 's/a\{40\}$/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/'
+  printf '2100000000|aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa|bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\\n'
 }
 resolve_dynamic_model_sizes >/dev/null
 for size in "${DOWNLOAD_SIZES[@]}"; do
   [ "$size" = "2100000000" ]
 done
 for hash in "${DOWNLOAD_SHA256[@]}"; do
-  [ "$hash" = "$(printf 'a%.0s' {1..64})" ]
+  [ "$hash" = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" ]
 done
 for url in "${DOWNLOAD_URLS[@]}"; do
   [[ "$url" != *"/resolve/main/"* ]]
