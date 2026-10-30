@@ -107,7 +107,10 @@ if grep -Fq -- '- family: ampere' "$repo_root/.github/workflows/docker-publish.y
   echo "Ampere must not be present in the publish matrix." >&2
   exit 1
 fi
-grep -Fq -- '- family: ada' "$repo_root/.github/workflows/docker-publish.yml"
+if grep -Fq -- '- family: ada' "$repo_root/.github/workflows/docker-publish.yml"; then
+  echo "Only Blackwell must be present in the publish matrix." >&2
+  exit 1
+fi
 grep -Fq -- '- family: blackwell' "$repo_root/.github/workflows/docker-publish.yml"
 grep -Fq 'cancel-in-progress: true' "$repo_root/.github/workflows/docker-publish.yml"
 
