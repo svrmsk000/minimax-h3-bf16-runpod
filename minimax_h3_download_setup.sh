@@ -7,9 +7,9 @@ VENV="${COMFY_VENV:-$COMFY/.venv-cu130}"
 DOWNLOAD_JOBS="${MINIMAX_H3_DOWNLOAD_JOBS:-2}"
 STATUS_FILE="${MINIMAX_H3_STATUS_FILE:-/workspace/runpod-slim/minimax-h3-download.status}"
 BUNDLE_ROOT="${MINIMAX_H3_BUNDLE_ROOT:-/opt/minimax-h3-bundle}"
-MODEL_REVISION="eb8a16107c595128b3a578f82d2ce2f75920c355"
-REF2VA_BF16_REVISION="3f57e8291d2ef846f9a074b1b76d2767db434abe"
-REF2VA_TURBO_LORA_REVISION="0fea91688aefb62d4eb94d5952f277f46c298284"
+MODEL_REVISION="main"
+REF2VA_BF16_REVISION="main"
+REF2VA_TURBO_LORA_REVISION="main"
 EXPECTED_CORE_COMMIT="${COMFYUI_H3_COMMIT:-12d5279438bfefc058a269eae805ceab6047777f}"
 PIXAROMA_COMMIT="${PIXAROMA_H3_COMMIT:-433bbedc7f43d717fcb9e8e9aa9cbd26b0439226}"
 GPU_FAMILY="${MINIMAX_H3_GPU_FAMILY:-ada}"
@@ -494,18 +494,14 @@ init_model_manifest() {
   )
   DOWNLOAD_SIZES=("0" "0" "0" "0" "0")
   DOWNLOAD_SHA256=(
-    "e889202c41dafb67b10d67b97f0d8541508036a6090af23425a5c2615d03c47a"
-    "e32c54c1a7b4f5f397f195cea267ccb18806303bb665678c4bee60953bdf3026"
-    "35a88d51044231fe332301d7a62aa81e3f2cba62febeb446e2c1e3e0ef76f2c6"
-    "8e505d95dd1561d47abd43d4238fd40d9bb1ae9e147ed0a4cba778d76ae4db48"
-    "7c1f131492e7eddacaac9069a61b81bdd39de5cc96561e677c5eab1cdce5e522"
+    "" "" "" "" ""
   )
 
   DOWNLOAD_KINDS+=("LORA")
   DOWNLOAD_URLS+=("$lora_base/loras/minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors")
   DOWNLOAD_OUTPUTS+=("$COMFY/models/loras/minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors")
   DOWNLOAD_SIZES+=("0")
-  DOWNLOAD_SHA256+=("5b9ab5ade15d0775676d01a907268a69a1468dc6033b3b0d3ded5502f3ebb84c")
+  DOWNLOAD_SHA256+=("")
 
   if seed_hunter_enabled; then
     SEED_HUNTER_DOWNLOADS=(6 7 8)
@@ -522,23 +518,550 @@ init_model_manifest() {
     )
     DOWNLOAD_SIZES+=("0" "0" "0")
     DOWNLOAD_SHA256+=(
-      "9bb2d96f218c76babd85e0611b85ca8fb330a90546c01a0005e8a58a59593410"
-      "4f57821f5837f32f7142b67d815606dbd7550f194e5c769f7d6c3f83b146a5e6"
-      "f0f60fa072089997f817402098c2fd90777cb2660dd79cf5df42fc1e3e08e527"
+      "" "" ""
     )
   fi
 }
 
+remote_model_metadata() {
+  local url="$1"
+  local headers
+  local -a auth=()
+  [ -n "${HF_TOKEN:-}" ] && auth=(-H "Authorization: Bearer ${HF_TOKEN}")
+  headers="$("$CURL_BIN" -fsSIL --retry 3 --retry-all-errors --connect-timeout 30 "${auth[@]}" "$url")" || return 1
+  printf '%s\\n' "$headers" | awk '
+    BEGIN { IGNORECASE=1 }
+    /^x-linked-size:/ { size=$2 }
+    /^x-linked-etag:/ { hash=$2 }
+    /^x-repo-commit:/ { commit=$2 }
+    END {
+      gsub(/\\r|"/, "", size); gsub(/\\r|"/, "", hash); gsub(/\\r|"/, "", commit)
+      sub(/^sha256:/, "", hash)
+      if (size !~ /^[0-9]+$/ || hash !~ /^[0-9a-fA-F]{64}$/ || commit !~ /^[0-9a-fA-F]{40}$/) exit 1
+      print size "\\t" tolower(hash) "\\t" commit
+    }
+  '
+}
+
 resolve_dynamic_model_sizes() {
-  local index observed
+  local index metadata observed observed_sha resolved_commit original_url
+  echo "Resolving latest Hugging Face model revisions, sizes, and SHA256..."
   for index in "${!DOWNLOAD_URLS[@]}"; do
-    observed="$(remote_size "${DOWNLOAD_URLS[$index]}")"
-    if ! [[ "$observed" =~ ^[0-9]+$ ]] || [ "$observed" -le 0 ]; then
-      echo "FATAL: Could not resolve remote file size for $(basename "${DOWNLOAD_OUTPUTS[$index]}") from Hugging Face." >&2
+    original_url="${DOWNLOAD_URLS[$index]}"
+    if ! metadata="$(remote_model_metadata "$original_url")"; then
+      echo "FATAL: Could not resolve current Hugging Face metadata for $(basename "${DOWNLOAD_OUTPUTS[$index]}")." >&2
       return 1
     fi
+    IFS=
+
+select_model_priority() {
+  local configured="${MINIMAX_H3_FIRST_MODEL:-ref2va}"
+  configured="${configured,,}"
+
+  case "$configured" in
+    ref2va)
+      FIRST_MODEL_INDEX=1
+      FIRST_MODEL_NAME="REF2VA"
+      DEFERRED_MODEL_INDEX=0
+      DEFERRED_MODEL_NAME="FL2VA"
+      ;;
+    fl2va)
+      FIRST_MODEL_INDEX=0
+      FIRST_MODEL_NAME="FL2VA"
+      DEFERRED_MODEL_INDEX=1
+      DEFERRED_MODEL_NAME="REF2VA"
+      ;;
+    *)
+      echo "WARNING: MINIMAX_H3_FIRST_MODEL must be 'ref2va' or 'fl2va'; using ref2va."
+      FIRST_MODEL_INDEX=1
+      FIRST_MODEL_NAME="REF2VA"
+      DEFERRED_MODEL_INDEX=0
+      DEFERRED_MODEL_NAME="FL2VA"
+      ;;
+  esac
+
+  echo "Startup priority: $FIRST_MODEL_NAME is required before ComfyUI starts; $DEFERRED_MODEL_NAME will download in the background."
+}
+
+prepare_local_models() {
+  local index out part expected actual
+  for index in "${!DOWNLOAD_OUTPUTS[@]}"; do
+    out="${DOWNLOAD_OUTPUTS[$index]}"
+    part="${out}.part"
+    expected="${DOWNLOAD_SIZES[$index]}"
+    mkdir -p "$(dirname "$out")"
+
+    if [ -e "$out" ] && {
+      ! validate_model_file "$out" "$expected" "${DOWNLOAD_SHA256[$index]}" \
+        || [ "$(sha256_file "$out")" != "${DOWNLOAD_SHA256[$index]}" ];
+    }; then
+      quarantine_invalid_file "$out" "outdated or invalid model"
+    fi
+
+    if [ -e "$part" ]; then
+      actual="$(file_size "$part")"
+      if [ "$actual" -gt "$expected" ]; then
+        quarantine_invalid_file "$part" "oversized partial model"
+      elif [ "$actual" -eq "$expected" ]; then
+        if validate_model_file "$part" "$expected" "${DOWNLOAD_SHA256[$index]}" \
+          && [ "$(sha256_file "$part")" = "${DOWNLOAD_SHA256[$index]}" ]; then
+          mv "$part" "$out"
+          echo "Recovered complete model from partial file: $(basename "$out")"
+        else
+          quarantine_invalid_file "$part" "invalid complete partial model"
+        fi
+      fi
+    fi
+  done
+}
+
+preflight_remote_models() {
+  local index observed expected expected_revision
+  echo "Probing pinned Hugging Face assets before downloading..."
+  for index in "${!DOWNLOAD_URLS[@]}"; do
+    if validate_model_file "${DOWNLOAD_OUTPUTS[$index]}" \
+      "${DOWNLOAD_SIZES[$index]}" "${DOWNLOAD_SHA256[$index]}"; then
+      continue
+    fi
+    observed="$(remote_size "${DOWNLOAD_URLS[$index]}")"
+    expected="${DOWNLOAD_SIZES[$index]}"
+    if [ "$observed" != "$expected" ]; then
+      echo "FATAL: Remote-size preflight failed for $(basename "${DOWNLOAD_OUTPUTS[$index]}")." >&2
+      echo "Expected $expected bytes at the resolved immutable Hugging Face revision; observed ${observed:-unknown}." >&2
+      return 1
+    fi
+    echo "Remote MODEL   $(basename "${DOWNLOAD_OUTPUTS[$index]}") ($observed bytes)"
+  done
+}
+
+preflight_disk_space() {
+  local index out part expected have remaining=0 available reserve_gib reserve required
+  reserve_gib="${MINIMAX_H3_DISK_RESERVE_GB:-10}"
+  [[ "$reserve_gib" =~ ^[0-9]+$ ]] || reserve_gib=10
+  reserve=$((reserve_gib * 1024 * 1024 * 1024))
+
+  for index in "${!DOWNLOAD_OUTPUTS[@]}"; do
+    out="${DOWNLOAD_OUTPUTS[$index]}"
+    part="${out}.part"
+    expected="${DOWNLOAD_SIZES[$index]}"
+    if validate_model_file "$out" "$expected" "${DOWNLOAD_SHA256[$index]}"; then
+      continue
+    fi
+    have="$(file_size "$part")"
+    [ "$have" -gt "$expected" ] && have=0
+    remaining=$((remaining + expected - have))
+  done
+
+  available="$(df -PB1 "$COMFY" | awk 'NR==2 {print $4}')"
+  [[ "$available" =~ ^[0-9]+$ ]] || {
+    echo "FATAL: Could not determine available container-disk space." >&2
+    return 1
+  }
+  required=$((remaining + reserve))
+  echo "Disk preflight: $(numfmt --to=iec-i --suffix=B "$remaining") remains to download; preserving $(numfmt --to=iec-i --suffix=B "$reserve") free."
+  if [ "$available" -lt "$required" ]; then
+    echo "FATAL: Insufficient container disk for MiniMax H3 cold start." >&2
+    echo "Available: $(numfmt --to=iec-i --suffix=B "$available"); required now: $(numfmt --to=iec-i --suffix=B "$required")." >&2
+    return 1
+  fi
+}
+
+download_file() {
+  local kind="$1"
+  local url="$2"
+  local out="$3"
+  local expected_size="$4"
+  local expected_sha256="$5"
+  local part="${out}.part"
+  local curl_log="${part}.curl.log"
+  local name started initial_bytes now bytes elapsed transferred average_speed
+  local sample_started sample_elapsed sample_bytes current_speed file_remaining file_eta
+  local status_printed=0 last_status_elapsed=0 last_observed_bytes stall_notified=0
+  local slow_samples=0 reconnect_count=0 reconnect_requested=0 reconnect_limit_reported=0 curl_pid
+  local min_speed_mib="${MINIMAX_H3_MIN_DOWNLOAD_MIBPS:-5}"
+  local reconnect_limit="${MINIMAX_H3_RECONNECT_LIMIT:-3}"
+  local min_speed
+  local -a curl_headers=()
+
+  [[ "$min_speed_mib" =~ ^[0-9]+$ ]] || min_speed_mib=5
+  [[ "$reconnect_limit" =~ ^[0-9]+$ ]] || reconnect_limit=3
+  min_speed=$((min_speed_mib * 1024 * 1024))
+  mkdir -p "$(dirname "$out")"
+  name="$(basename "$out")"
+
+  if validate_model_file "$out" "$expected_size" "$expected_sha256"; then
+    printf 'Ready %-5s  %s (validated)\n' "$kind" "$name"
+    return 0
+  fi
+  if validate_model_file "$part" "$expected_size" "$expected_sha256"; then
+    mv "$part" "$out"
+    printf 'Ready %-5s  %s (recovered complete partial)\n' "$kind" "$name"
+    return 0
+  fi
+
+  if [ -n "${HF_TOKEN:-}" ]; then
+    curl_headers=(-H "Authorization: Bearer ${HF_TOKEN}")
+  fi
+  started=$(date +%s)
+  initial_bytes=$(file_size "$part")
+
+  while true; do
+    reconnect_requested=0
+    slow_samples=0
+    last_observed_bytes=$(file_size "$part")
+    sample_started=$(date +%s)
+
+    "$CURL_BIN" -L --fail --silent --show-error --retry 5 --retry-all-errors --retry-delay 5 \
+      --connect-timeout 30 --speed-limit 1024 --speed-time 15 \
+      "${curl_headers[@]}" \
+      --continue-at - -o "$part" "$url" >"$curl_log" 2>&1 &
+    curl_pid=$!
+
+    while kill -0 "$curl_pid" 2>/dev/null; do
+      sleep 10
+      kill -0 "$curl_pid" 2>/dev/null || break
+      now=$(date +%s)
+      bytes=$(file_size "$part")
+      sample_elapsed=$((now - sample_started))
+      [ "$sample_elapsed" -lt 1 ] && sample_elapsed=1
+      sample_bytes=$((bytes - last_observed_bytes))
+      [ "$sample_bytes" -lt 0 ] && sample_bytes=0
+      current_speed=$((sample_bytes / sample_elapsed))
+
+      if [ "$bytes" -le "$last_observed_bytes" ]; then
+        if [ "$stall_notified" -eq 0 ]; then
+          echo "WARNING: $kind $name has not grown in the last 10 seconds."
+          notify_ntfy \
+            "RunPod download stalled" "urgent" "warning" \
+            "$kind $name has not changed size for 10 seconds. Curl is still retrying."
+          stall_notified=1
+        fi
+      else
+        stall_notified=0
+      fi
+
+      elapsed=$((now - started))
+      [ "$elapsed" -lt 1 ] && elapsed=1
+      transferred=$((bytes - initial_bytes))
+      [ "$transferred" -lt 0 ] && transferred=0
+      average_speed=$((transferred / elapsed))
+
+      if [ "$transferred" -gt 0 ] \
+        && { [ "$status_printed" -eq 0 ] || [ $((elapsed - last_status_elapsed)) -ge 10 ]; }; then
+        if [ "$expected_size" -gt "$bytes" ] && [ "$average_speed" -gt 0 ]; then
+          file_remaining=$((expected_size - bytes))
+          file_eta=$(((file_remaining + average_speed - 1) / average_speed))
+          printf 'Downloading %-5s  %s | %s/%s | current %s/s | average %s/s | ETA %s\n' \
+            "$kind" "$name" \
+            "$(numfmt --to=iec-i --suffix=B "$bytes")" \
+            "$(numfmt --to=iec-i --suffix=B "$expected_size")" \
+            "$(numfmt --to=iec-i --suffix=B "$current_speed")" \
+            "$(numfmt --to=iec-i --suffix=B "$average_speed")" \
+            "$(format_eta "$file_eta")"
+        fi
+        status_printed=1
+        last_status_elapsed=$elapsed
+      fi
+
+      if [ "$current_speed" -lt "$min_speed" ]; then
+        slow_samples=$((slow_samples + 1))
+      else
+        slow_samples=0
+      fi
+
+      if [ "$slow_samples" -ge 3 ]; then
+        if [ "$reconnect_count" -lt "$reconnect_limit" ]; then
+          reconnect_count=$((reconnect_count + 1))
+          echo "WARNING: $kind $name stayed below ${min_speed_mib}MiB/s for 30 seconds; reconnecting ($reconnect_count/$reconnect_limit)."
+          reconnect_requested=1
+          kill "$curl_pid" 2>/dev/null || true
+        elif [ "$reconnect_limit_reported" -eq 0 ]; then
+          echo "WARNING: $kind $name is still slow, but the reconnect limit was reached; continuing."
+          reconnect_limit_reported=1
+        fi
+        slow_samples=0
+      fi
+
+      last_observed_bytes=$bytes
+      sample_started=$now
+      [ "$reconnect_requested" -eq 1 ] && break
+    done
+
+    if [ "$reconnect_requested" -eq 1 ]; then
+      if wait "$curl_pid" 2>/dev/null; then
+        break
+      fi
+      sleep 2
+      continue
+    fi
+
+    if ! wait "$curl_pid"; then
+      echo "Download failed after retries; showing the last curl errors:"
+      tail -n 20 "$curl_log" || true
+      return 1
+    fi
+    break
+  done
+
+  rm -f "$curl_log"
+  if ! validate_model_file "$part" "$expected_size" "$expected_sha256"; then
+    echo "ERROR: Downloaded file failed exact-size or safetensors validation: $name" >&2
+    return 1
+  fi
+  mv "$part" "$out"
+
+  now=$(date +%s)
+  elapsed=$((now - started))
+  bytes=$(file_size "$out")
+  transferred=$((bytes - initial_bytes))
+  [ "$elapsed" -lt 1 ] && elapsed=1
+  [ "$transferred" -lt 0 ] && transferred=0
+  average_speed=$((transferred / elapsed))
+  printf 'Downloaded  %-5s  %s | %s | average %s/s\n' \
+    "$kind" "$name" "$(numfmt --to=iec-i --suffix=B "$bytes")" \
+    "$(numfmt --to=iec-i --suffix=B "$average_speed")"
+  notify_ntfy \
+    "RunPod download complete" "default" "white_check_mark" \
+    "$kind $name finished downloading and passed validation."
+}
+
+download_group() {
+  local label="$1"
+  shift
+  local -a indices=("$@")
+  local index next=0 active=0 failures=0 pid
+  local started finished elapsed initial_bytes=0 final_bytes=0 transferred average_speed
+  local path part_size name
+
+  [ "${#indices[@]}" -gt 0 ] || return 0
+  echo "Starting $label downloads with up to $DOWNLOAD_JOBS concurrent transfers."
+  started=$(date +%s)
+
+  for index in "${indices[@]}"; do
+    path="${DOWNLOAD_OUTPUTS[$index]}"
+    if validate_model_file "$path" "${DOWNLOAD_SIZES[$index]}" "${DOWNLOAD_SHA256[$index]}"; then
+      initial_bytes=$((initial_bytes + $(file_size "$path")))
+    else
+      part_size=$(file_size "${path}.part")
+      initial_bytes=$((initial_bytes + part_size))
+    fi
+  done
+
+  while [ "$next" -lt "${#indices[@]}" ] || [ "$active" -gt 0 ]; do
+    while [ "$next" -lt "${#indices[@]}" ] && [ "$active" -lt "$DOWNLOAD_JOBS" ]; do
+      index="${indices[$next]}"
+      name="$(basename "${DOWNLOAD_OUTPUTS[$index]}")"
+      (
+        download_file "${DOWNLOAD_KINDS[$index]}" "${DOWNLOAD_URLS[$index]}" \
+          "${DOWNLOAD_OUTPUTS[$index]}" "${DOWNLOAD_SIZES[$index]}" \
+          "${DOWNLOAD_SHA256[$index]}"
+      ) 2>&1 | sed -u "s/^/[$label][$name] /" &
+      pid=$!
+      echo "[$label] Started $name (worker PID $pid)."
+      next=$((next + 1))
+      active=$((active + 1))
+    done
+
+    if [ "$active" -gt 0 ]; then
+      if wait -n; then
+        :
+      else
+        failures=$((failures + 1))
+      fi
+      active=$((active - 1))
+    fi
+  done
+
+  finished=$(date +%s)
+  elapsed=$((finished - started))
+  [ "$elapsed" -lt 1 ] && elapsed=1
+  for index in "${indices[@]}"; do
+    final_bytes=$((final_bytes + $(file_size "${DOWNLOAD_OUTPUTS[$index]}")))
+  done
+  transferred=$((final_bytes - initial_bytes))
+  [ "$transferred" -lt 0 ] && transferred=0
+  average_speed=$((transferred / elapsed))
+
+  if [ "$failures" -gt 0 ]; then
+    echo "ERROR: $label finished with $failures failed download worker(s)."
+    return 1
+  fi
+  echo "Completed $label downloads in $(format_eta "$elapsed") at aggregate average $(numfmt --to=iec-i --suffix=B "$average_speed")/s."
+}
+
+validate_model_group() {
+  local label="$1"
+  shift
+  local index actual_sha256 out
+  for index in "$@"; do
+    out="${DOWNLOAD_OUTPUTS[$index]}"
+    if ! validate_model_file "$out" \
+      "${DOWNLOAD_SIZES[$index]}" "${DOWNLOAD_SHA256[$index]}"; then
+      echo "FATAL: Final validation failed for $out" >&2
+      return 1
+    fi
+    echo "Checking SHA256: $(basename "$out")..."
+    actual_sha256="$(sha256_file "$out")"
+    if [ "$actual_sha256" != "${DOWNLOAD_SHA256[$index]}" ]; then
+      echo "FATAL: SHA256 mismatch for $out" >&2
+      echo "Expected: ${DOWNLOAD_SHA256[$index]}" >&2
+      echo "Actual:   $actual_sha256" >&2
+      quarantine_invalid_file "$out" "model with a SHA256 mismatch"
+      return 1
+    fi
+  done
+  echo "Validated $label."
+}
+
+validate_all_models() {
+  local -a all_downloads=("${!DOWNLOAD_OUTPUTS[@]}")
+  validate_model_group "both H3 diffusion models and all enabled shared assets" \
+    "${all_downloads[@]}"
+}
+
+patch_start_credentials() {
+  echo "Patching original /start.sh for custom FileBrowser credentials..."
+  python3 - <<'PY_PATCH_START'
+from pathlib import Path
+
+p = Path('/start.sh')
+s = p.read_text()
+old = 'filebrowser users add admin adminadmin12 --perm.admin'
+new = 'filebrowser users add "${FILEBROWSER_USERNAME:-admin}" "${FILEBROWSER_PASSWORD:-adminadmin12}" --perm.admin'
+if old in s:
+    s = s.replace(old, new)
+    print('Patched FileBrowser credentials line in /start.sh.')
+elif new in s:
+    print('/start.sh already has custom FileBrowser credential support.')
+else:
+    print('WARNING: Could not find FileBrowser credentials line in /start.sh; leaving it unchanged.')
+p.write_text(s)
+PY_PATCH_START
+}
+
+start_ready_notification() {
+  local readiness_detail="$1"
+  [ -n "${NTFY_TOPIC:-}" ] || return 0
+  echo "Watching for ComfyUI readiness before sending ntfy notification..."
+  (
+    trap - EXIT
+    trap '' HUP
+    for _ in $(seq 1 180); do
+      if "$CURL_BIN" -fsS --max-time 2 http://127.0.0.1:8188/ >/dev/null 2>&1; then
+        notify_ntfy \
+          "MiniMax H3 ComfyUI is ready" "high" "tada" \
+          "$readiness_detail"
+        exit 0
+      fi
+      sleep 5
+    done
+    echo "WARNING: ComfyUI did not become ready within 15 minutes; no ready notification sent."
+  ) &
+}
+
+start_deferred_model_download() {
+  local deferred_name="$1"
+  shift
+  local -a indices=("$@")
+  local filename="$(basename "${DOWNLOAD_OUTPUTS[${indices[0]}]}")"
+  local background_label="$deferred_name"
+  if [ "${#SEED_HUNTER_DOWNLOADS[@]}" -gt 0 ]; then
+    background_label="$deferred_name plus Seed Hunter support assets"
+  fi
+
+  write_status "background-downloading" \
+    "ComfyUI is starting with $FIRST_MODEL_NAME ready; downloading $background_label in the background."
+  (
+    # The foreground setup EXIT trap must not mark a later background failure as
+    # a failed cold start. Ignore HUP so replacing the wrapper with /start.sh does
+    # not interrupt the resumable transfer.
+    trap - EXIT
+    trap '' HUP
+    if download_group "MINIMAX-H3-BACKGROUND" "${indices[@]}" \
+      && validate_model_group "$background_label" "${indices[@]}"; then
+      write_status "ready" \
+        "Both MiniMax H3 diffusion models and all enabled support assets passed validation."
+      notify_ntfy \
+        "MiniMax H3 background model ready" "high" "white_check_mark" \
+        "$background_label finished downloading and is ready in ComfyUI. Refresh the browser model list if it is already open."
+      echo "=== Background $background_label download is ready; first file: $filename ==="
+    else
+      write_status "background-failed" \
+        "$background_label download failed; partial files were preserved for the next restart."
+      notify_ntfy \
+        "MiniMax H3 background download failed" "urgent" "warning" \
+        "$background_label failed to download. The ready $FIRST_MODEL_NAME workflows remain usable and partial downloads will resume on restart."
+      echo "ERROR: Background $background_label download failed; partial data was preserved." >&2
+      exit 1
+    fi
+  ) &
+  echo "Background $deferred_name downloader started as PID $!."
+}
+
+main() {
+  local -a foreground_downloads
+  local -a background_downloads
+  local setup_complete=0
+  local readiness_detail
+
+  echo "=== MiniMax H3 cold-start setup starting ==="
+  write_status "preflight" "Validating CUDA, ComfyUI, bundle, remote assets, and disk space."
+  trap 'rc=$?; if [ "$setup_complete" -ne 1 ]; then write_status "failed" "Setup exited with code $rc; completed and partial files were preserved."; fi; exit "$rc"' EXIT
+
+  preflight_cuda
+  ensure_comfyui
+  ensure_pixaroma_h3
+  ensure_seed_hunter_nodes
+  python -m py_compile \
+    "$COMFY/comfy_extras/nodes_minimax_h3.py" \
+    "$COMFY/comfy/text_encoders/minimax.py" \
+    "$COMFY/custom_nodes/ComfyUI-Pixaroma/nodes/node_h3_audio_sync.py"
+
+  resolve_script_base_url
+  install_bundle
+  validate_installed_workflows
+
+  init_model_manifest
+  resolve_dynamic_model_sizes
+  select_model_priority
+  foreground_downloads=("$FIRST_MODEL_INDEX" 2 3 4 5)
+  background_downloads=("$DEFERRED_MODEL_INDEX" "${SEED_HUNTER_DOWNLOADS[@]}")
+  prepare_local_models
+  preflight_remote_models
+  preflight_disk_space
+
+  write_status "foreground-downloading" \
+    "Downloading $FIRST_MODEL_NAME, the Ref2VA Turbo LoRA, and all shared assets before ComfyUI starts."
+  download_group "MINIMAX-H3-FOREGROUND" "${foreground_downloads[@]}"
+  validate_model_group "$FIRST_MODEL_NAME, Ref2VA Turbo LoRA, and all shared model assets" \
+    "${foreground_downloads[@]}"
+
+  patch_start_credentials
+  readiness_detail="ComfyUI started with $FIRST_MODEL_NAME ready. $DEFERRED_MODEL_NAME is downloading in the background; refresh the model list after its completion notification."
+  if [ "${#SEED_HUNTER_DOWNLOADS[@]}" -gt 0 ]; then
+    readiness_detail="ComfyUI started with $FIRST_MODEL_NAME ready. $DEFERRED_MODEL_NAME and the Ada/Blackwell Seed Hunter support models are downloading in the background."
+  fi
+  start_ready_notification "$readiness_detail"
+  write_status "foreground-ready" \
+    "$FIRST_MODEL_NAME and all shared assets are ready; ComfyUI is starting and $DEFERRED_MODEL_NAME will download in the background."
+  setup_complete=1
+  trap - EXIT
+
+  notify_ntfy \
+    "MiniMax H3 foreground models ready" "high" "white_check_mark" \
+    "$FIRST_MODEL_NAME, Ref2VA Turbo LoRA, Qwen text encoder, and audio/video VAEs are ready. ComfyUI is starting while $DEFERRED_MODEL_NAME downloads in the background."
+  start_deferred_model_download "$DEFERRED_MODEL_NAME" "${background_downloads[@]}"
+  echo "=== MiniMax H3 $FIRST_MODEL_NAME workflows are ready ==="
+  echo "Returning to wrapper. SageAttention bootstrap will run next."
+}
+
+if [ "${MINIMAX_H3_SETUP_LIB_ONLY:-0}" != "1" ]; then
+  main "$@"
+fi\\t' read -r observed observed_sha resolved_commit <<< "$metadata"
     DOWNLOAD_SIZES[$index]="$observed"
-    echo "Remote size resolved: $(basename "${DOWNLOAD_OUTPUTS[$index]}") ($observed bytes)"
+    DOWNLOAD_SHA256[$index]="$observed_sha"
+    DOWNLOAD_URLS[$index]="${original_url/\\/resolve\\/main\\//resolve\\/$resolved_commit\\/}"
+    echo "Latest HF model: $(basename "${DOWNLOAD_OUTPUTS[$index]}") | revision $resolved_commit | $observed bytes | SHA256 $observed_sha"
   done
 }
 
