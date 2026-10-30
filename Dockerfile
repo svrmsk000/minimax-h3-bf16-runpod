@@ -52,6 +52,9 @@ RUN git init /tmp/SageAttention \
         sed -i \
           's/cc_major, cc_minor = torch.cuda.get_device_capability()/cc_major, cc_minor = map(int, os.environ["SAGE_CUDA_ARCH_LIST"].split("."))/' \
           /tmp/SageAttention/sageattention3_blackwell/setup.py; \
+        grep -Fq -- '--threads 4' /tmp/SageAttention/sageattention3_blackwell/setup.py; \
+        sed -i "s/--threads 4/--threads 1/g" \
+          /tmp/SageAttention/sageattention3_blackwell/setup.py; \
         LIBRARY_PATH=/usr/local/cuda/lib64/stubs \
           python3 -m pip wheel --no-deps --no-build-isolation \
           --wheel-dir /tmp/sage-wheels \
