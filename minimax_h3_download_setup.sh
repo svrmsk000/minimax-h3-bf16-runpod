@@ -7,9 +7,9 @@ VENV="${COMFY_VENV:-$COMFY/.venv-cu130}"
 DOWNLOAD_JOBS="${MINIMAX_H3_DOWNLOAD_JOBS:-2}"
 STATUS_FILE="${MINIMAX_H3_STATUS_FILE:-/workspace/runpod-slim/minimax-h3-download.status}"
 BUNDLE_ROOT="${MINIMAX_H3_BUNDLE_ROOT:-/opt/minimax-h3-bundle}"
-MODEL_REVISION="main"
-REF2VA_BF16_REVISION="main"
-REF2VA_TURBO_LORA_REVISION="main"
+MODEL_REVISION="eb8a16107c595128b3a578f82d2ce2f75920c355"
+REF2VA_BF16_REVISION="3f57e8291d2ef846f9a074b1b76d2767db434abe"
+REF2VA_TURBO_LORA_REVISION="0fea91688aefb62d4eb94d5952f277f46c298284"
 EXPECTED_CORE_COMMIT="${COMFYUI_H3_COMMIT:-12d5279438bfefc058a269eae805ceab6047777f}"
 PIXAROMA_COMMIT="${PIXAROMA_H3_COMMIT:-433bbedc7f43d717fcb9e8e9aa9cbd26b0439226}"
 GPU_FAMILY="${MINIMAX_H3_GPU_FAMILY:-ada}"
@@ -511,9 +511,9 @@ init_model_manifest() {
     SEED_HUNTER_DOWNLOADS=(6 7 8)
     DOWNLOAD_KINDS+=("VAE" "UPSCALE" "VAE-APPROX")
     DOWNLOAD_URLS+=(
-      "https://huggingface.co/Kijai/MiniMax-H3-experimental/resolve/main/minimax_h3_video_vae_int8_convrot.safetensors"
-      "https://huggingface.co/LBH-123-AI/Minimax_h3_latent_Upscaler/resolve/main/minimax_h3_latent_upscaler_3d_bf16.safetensors"
-      "https://huggingface.co/Kijai/MiniMax-H3-TAE/resolve/main/vae_approx/taeh3.safetensors"
+      "https://huggingface.co/Kijai/MiniMax-H3-experimental/resolve/f4cac997f880e93cf6940af61ee8d58ef31ff7f3/minimax_h3_video_vae_int8_convrot.safetensors"
+      "https://huggingface.co/LBH-123-AI/Minimax_h3_latent_Upscaler/resolve/13ccf95d85d120bdbc92c05b1247a6e147bf54bf/minimax_h3_latent_upscaler_3d_bf16.safetensors"
+      "https://huggingface.co/Kijai/MiniMax-H3-TAE/resolve/a213ac8bf2f148b4f32372279a7f207846978900/vae_approx/taeh3.safetensors"
     )
     DOWNLOAD_OUTPUTS+=(
       "$COMFY/models/vae/minimax_h3_video_vae_int8_convrot.safetensors"
@@ -530,26 +530,15 @@ init_model_manifest() {
 }
 
 resolve_dynamic_model_sizes() {
-  local index observed metadata observed_sha original_url
-  local -a auth=()
-  [ -n "${HF_TOKEN:-}" ] && auth=(-H "Authorization: Bearer ${HF_TOKEN}")
+  local index observed
   for index in "${!DOWNLOAD_URLS[@]}"; do
-    original_url="${DOWNLOAD_URLS[$index]}"
-    metadata="$("$CURL_BIN" -fsSIL --retry 3 --retry-all-errors --connect-timeout 30 \
-      "${auth[@]}" "$original_url")" || {
-        echo "FATAL: Could not read current Hugging Face model metadata: $original_url" >&2
-        return 1
-      }
-    observed="$(printf '%s\n' "$metadata" | awk 'tolower($1)=="x-linked-size:" {gsub(/\r/, "", $2); size=$2} END {print size}')"
-    observed_sha="$(printf '%s\n' "$metadata" | awk 'tolower($1)=="x-linked-etag:" {gsub(/[\r"]/, "", $2); sub(/^sha256:/, "", $2); hash=$2} END {print tolower(hash)}')"
-    if ! [[ "$observed" =~ ^[0-9]+$ ]] || [ "$observed" -le 0 ] \
-      || ! [[ "$observed_sha" =~ ^[0-9a-f]{64}$ ]]; then
-      echo "FATAL: Hugging Face did not return valid size and SHA256 for $original_url" >&2
+    observed="$(remote_size "${DOWNLOAD_URLS[$index]}")"
+    if ! [[ "$observed" =~ ^[0-9]+$ ]] || [ "$observed" -le 0 ]; then
+      echo "FATAL: Could not resolve remote file size for $(basename "${DOWNLOAD_OUTPUTS[$index]}") from Hugging Face." >&2
       return 1
     fi
     DOWNLOAD_SIZES[$index]="$observed"
-    DOWNLOAD_SHA256[$index]="$observed_sha"
-    echo "Remote model metadata: $(basename "${DOWNLOAD_OUTPUTS[$index]}") ($observed bytes, SHA256 $observed_sha)"
+    echo "Remote size resolved: $(basename "${DOWNLOAD_OUTPUTS[$index]}") ($observed bytes)"
   done
 }
 
