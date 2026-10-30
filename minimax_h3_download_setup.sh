@@ -131,6 +131,7 @@ validate_model_file() {
   [ -f "$path" ] || return 1
   [ "$(file_size "$path")" = "$expected_size" ] || return 1
   validate_safetensors_file "$path" "$expected_size" >/dev/null || return 1
+  [ "$(sha256_file "$path")" = "$expected_sha256" ] || return 1
 }
 
 quarantine_invalid_file() {
@@ -523,44 +524,30 @@ init_model_manifest() {
   fi
 }
 
-remote_model_metadata() {
-  local url="$1"
-  local headers
-  local -a auth=()
-  [ -n "${HF_TOKEN:-}" ] && auth=(-H "Authorization: Bearer ${HF_TOKEN}")
-  headers="$("$CURL_BIN" -fsSIL --retry 3 --retry-all-errors --connect-timeout 30 "${auth[@]}" "$url")" || return 1
-  printf '%s\n' "$headers" | awk '
-    {
-      key=tolower($1)
-      if (key == "x-linked-size:") size=$2
-      if (key == "x-linked-etag:") hash=$2
-      if (key == "x-repo-commit:") commit=$2
-    }
-    END {
-      gsub(/\r|"/, "", size)
-      gsub(/\r|"/, "", hash)
-      gsub(/\r|"/, "", commit)
-      sub(/^sha256:/, "", hash)
-      if (size !~ /^[0-9]+$/ || hash !~ /^[0-9a-fA-F]{64}$/ || commit !~ /^[0-9a-fA-F]{40}$/) exit 1
-      print size "|" tolower(hash) "|" commit
-    }
-  '
-}
-
 resolve_dynamic_model_sizes() {
   local index metadata observed observed_sha resolved_commit original_url
-  echo "Resolving latest Hugging Face model revisions, sizes, and SHA256..."
+  local -a auth=()
+  [ -n "${HF_TOKEN:-}" ] && auth=(-H "Authorization: Bearer ${HF_TOKEN}")
   for index in "${!DOWNLOAD_URLS[@]}"; do
     original_url="${DOWNLOAD_URLS[$index]}"
-    if ! metadata="$(remote_model_metadata "$original_url")"; then
-      echo "FATAL: Could not resolve current Hugging Face metadata for $(basename "${DOWNLOAD_OUTPUTS[$index]}")." >&2
+    metadata="$("$CURL_BIN" -fsSIL --retry 3 --retry-all-errors --connect-timeout 30 \
+      "${auth[@]}" "$original_url")" || {
+        echo "FATAL: Could not read current Hugging Face model metadata: $original_url" >&2
+        return 1
+      }
+    observed="$(printf '%s\\n' "$metadata" | awk 'tolower($1)=="x-linked-size:" {gsub(/\\r/, "", $2); size=$2} END {print size}')"
+    observed_sha="$(printf '%s\\n' "$metadata" | awk 'tolower($1)=="x-linked-etag:" {gsub(/[\\r"]/, "", $2); sub(/^sha256:/, "", $2); hash=$2} END {print tolower(hash)}')"
+    resolved_commit="$(printf '%s\\n' "$metadata" | awk 'tolower($1)=="x-repo-commit:" {gsub(/[\\r"]/, "", $2); commit=$2} END {print commit}')"
+    if ! [[ "$observed" =~ ^[0-9]+$ ]] || [ "$observed" -le 0 ] \
+      || ! [[ "$observed_sha" =~ ^[0-9a-f]{64}$ ]] \
+      || ! [[ "$resolved_commit" =~ ^[0-9a-f]{40}$ ]]; then
+      echo "FATAL: Hugging Face did not return valid size, SHA256, and revision for $original_url" >&2
       return 1
     fi
-    IFS='|' read -r observed observed_sha resolved_commit <<< "$metadata"
     DOWNLOAD_SIZES[$index]="$observed"
     DOWNLOAD_SHA256[$index]="$observed_sha"
     DOWNLOAD_URLS[$index]="${original_url/\/resolve\/main\//\/resolve\/$resolved_commit\/}"
-    echo "Latest HF model: $(basename "${DOWNLOAD_OUTPUTS[$index]}") | revision $resolved_commit | $observed bytes | SHA256 $observed_sha"
+    echo "Model metadata: $(basename "${DOWNLOAD_OUTPUTS[$index]}") ($observed bytes, SHA256 $observed_sha)"
   done
 }
 
@@ -601,29 +588,17 @@ prepare_local_models() {
     expected="${DOWNLOAD_SIZES[$index]}"
     mkdir -p "$(dirname "$out")"
 
-    if [ -e "$out" ] && {
-      ! validate_model_file "$out" "$expected" "${DOWNLOAD_SHA256[$index]}" \
-        || [ "$(sha256_file "$out")" != "${DOWNLOAD_SHA256[$index]}" ];
-    }; then
-      quarantine_invalid_file "$out" "outdated or invalid model"
+    if [ -e "$out" ] && ! validate_model_file "$out" "$expected" "${DOWNLOAD_SHA256[$index]}"; then
+      quarantine_invalid_file "$out" "completed model"
     fi
 
-    local marker="${part}.expected-sha256"
-    if [ -e "$part" ]; then
-      if [ ! -f "$marker" ] || [ "$(cat "$marker")" != "${DOWNLOAD_SHA256[$index]}" ]; then
-        quarantine_invalid_file "$part" "partial model from an older Hugging Face revision"
-      fi
-    fi
-    printf '%s\n' "${DOWNLOAD_SHA256[$index]}" > "$marker"
     if [ -e "$part" ]; then
       actual="$(file_size "$part")"
       if [ "$actual" -gt "$expected" ]; then
         quarantine_invalid_file "$part" "oversized partial model"
       elif [ "$actual" -eq "$expected" ]; then
-        if validate_model_file "$part" "$expected" "${DOWNLOAD_SHA256[$index]}" \
-          && [ "$(sha256_file "$part")" = "${DOWNLOAD_SHA256[$index]}" ]; then
+        if validate_model_file "$part" "$expected" "${DOWNLOAD_SHA256[$index]}"; then
           mv "$part" "$out"
-          rm -f "$marker"
           echo "Recovered complete model from partial file: $(basename "$out")"
         else
           quarantine_invalid_file "$part" "invalid complete partial model"
@@ -643,9 +618,12 @@ preflight_remote_models() {
     fi
     observed="$(remote_size "${DOWNLOAD_URLS[$index]}")"
     expected="${DOWNLOAD_SIZES[$index]}"
+    expected_revision="$MODEL_REVISION"
+    [ "$index" -eq 1 ] && expected_revision="$REF2VA_BF16_REVISION"
+    [ "$index" -eq 5 ] && expected_revision="$REF2VA_TURBO_LORA_REVISION"
     if [ "$observed" != "$expected" ]; then
       echo "FATAL: Remote-size preflight failed for $(basename "${DOWNLOAD_OUTPUTS[$index]}")." >&2
-      echo "Expected $expected bytes at the resolved immutable Hugging Face revision; observed ${observed:-unknown}." >&2
+      echo "Expected $expected bytes from revision $expected_revision; observed ${observed:-unknown}." >&2
       return 1
     fi
     echo "Remote MODEL   $(basename "${DOWNLOAD_OUTPUTS[$index]}") ($observed bytes)"
@@ -1075,34 +1053,4 @@ main() {
 
 if [ "${MINIMAX_H3_SETUP_LIB_ONLY:-0}" != "1" ]; then
   main "$@"
-fi\\t' read -r observed observed_sha resolved_commit <<< "$metadata"
-    DOWNLOAD_SIZES[$index]="$observed"
-    DOWNLOAD_SHA256[$index]="$observed_sha"
-    DOWNLOAD_URLS[$index]="${original_url/\\/resolve\\/main\\//resolve\\/$resolved_commit\\/}"
-    echo "Latest HF model: $(basename "${DOWNLOAD_OUTPUTS[$index]}") | revision $resolved_commit | $observed bytes | SHA256 $observed_sha"
-  done
-}
-
-select_model_priority() {
-  local configured="${MINIMAX_H3_FIRST_MODEL:-ref2va}"
-  configured="${configured,,}"
-
-  case "$configured" in
-    ref2va)
-      FIRST_MODEL_INDEX=1
-      FIRST_MODEL_NAME="REF2VA"
-      DEFERRED_MODEL_INDEX=0
-      DEFERRED_MODEL_NAME="FL2VA"
-      ;;
-    fl2va)
-      FIRST_MODEL_INDEX=0
-      FIRST_MODEL_NAME="FL2VA"
-      DEFERRED_MODEL_INDEX=1
-      DEFERRED_MODEL_NAME="REF2VA"
-      ;;
-    *)
-      echo "WARNING: MINIMAX_H3_FIRST_MODEL must be 'ref2va' or 'fl2va'; using ref2va."
-      FIRST_MODEL_INDEX=1
-      FIRST_MODEL_NAME="REF2VA"
-      DEFERRED_MODEL_INDEX=0
-      DEFERRED_MODEL_NAME="FL2VA"
+fi
