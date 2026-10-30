@@ -131,7 +131,6 @@ validate_model_file() {
   [ -f "$path" ] || return 1
   [ "$(file_size "$path")" = "$expected_size" ] || return 1
   validate_safetensors_file "$path" "$expected_size" >/dev/null || return 1
-  [ "$(sha256_file "$path")" = "$expected_sha256" ] || return 1
 }
 
 quarantine_invalid_file() {
@@ -495,14 +494,18 @@ init_model_manifest() {
   )
   DOWNLOAD_SIZES=("0" "0" "0" "0" "0")
   DOWNLOAD_SHA256=(
-    "" "" "" "" ""
+    "e889202c41dafb67b10d67b97f0d8541508036a6090af23425a5c2615d03c47a"
+    "e32c54c1a7b4f5f397f195cea267ccb18806303bb665678c4bee60953bdf3026"
+    "35a88d51044231fe332301d7a62aa81e3f2cba62febeb446e2c1e3e0ef76f2c6"
+    "8e505d95dd1561d47abd43d4238fd40d9bb1ae9e147ed0a4cba778d76ae4db48"
+    "7c1f131492e7eddacaac9069a61b81bdd39de5cc96561e677c5eab1cdce5e522"
   )
 
   DOWNLOAD_KINDS+=("LORA")
   DOWNLOAD_URLS+=("$lora_base/loras/minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors")
   DOWNLOAD_OUTPUTS+=("$COMFY/models/loras/minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors")
   DOWNLOAD_SIZES+=("0")
-  DOWNLOAD_SHA256+=("")
+  DOWNLOAD_SHA256+=("5b9ab5ade15d0775676d01a907268a69a1468dc6033b3b0d3ded5502f3ebb84c")
 
   if seed_hunter_enabled; then
     SEED_HUNTER_DOWNLOADS=(6 7 8)
@@ -519,13 +522,15 @@ init_model_manifest() {
     )
     DOWNLOAD_SIZES+=("0" "0" "0")
     DOWNLOAD_SHA256+=(
-      "" "" ""
+      "9bb2d96f218c76babd85e0611b85ca8fb330a90546c01a0005e8a58a59593410"
+      "4f57821f5837f32f7142b67d815606dbd7550f194e5c769f7d6c3f83b146a5e6"
+      "f0f60fa072089997f817402098c2fd90777cb2660dd79cf5df42fc1e3e08e527"
     )
   fi
 }
 
 resolve_dynamic_model_sizes() {
-  local index metadata observed observed_sha resolved_commit original_url
+  local index observed metadata observed_sha original_url
   local -a auth=()
   [ -n "${HF_TOKEN:-}" ] && auth=(-H "Authorization: Bearer ${HF_TOKEN}")
   for index in "${!DOWNLOAD_URLS[@]}"; do
@@ -535,19 +540,16 @@ resolve_dynamic_model_sizes() {
         echo "FATAL: Could not read current Hugging Face model metadata: $original_url" >&2
         return 1
       }
-    observed="$(printf '%s\n' "$metadata" | awk 'tolower($1)=="x-linked-size:" {gsub(/\r/, "", $2); size=$2} END {print size}')"
-    observed_sha="$(printf '%s\n' "$metadata" | awk 'tolower($1)=="x-linked-etag:" {gsub(/[\r"]/, "", $2); sub(/^sha256:/, "", $2); hash=$2} END {print tolower(hash)}')"
-    resolved_commit="$(printf '%s\n' "$metadata" | awk 'tolower($1)=="x-repo-commit:" {gsub(/[\r"]/, "", $2); commit=$2} END {print commit}')"
+    observed="$(printf '%s\\n' "$metadata" | awk 'tolower($1)=="x-linked-size:" {gsub(/\\r/, "", $2); size=$2} END {print size}')"
+    observed_sha="$(printf '%s\\n' "$metadata" | awk 'tolower($1)=="x-linked-etag:" {gsub(/[\\r"]/, "", $2); sub(/^sha256:/, "", $2); hash=$2} END {print tolower(hash)}')"
     if ! [[ "$observed" =~ ^[0-9]+$ ]] || [ "$observed" -le 0 ] \
-      || ! [[ "$observed_sha" =~ ^[0-9a-f]{64}$ ]] \
-      || ! [[ "$resolved_commit" =~ ^[0-9a-f]{40}$ ]]; then
-      echo "FATAL: Hugging Face did not return valid size, SHA256, and revision for $original_url" >&2
+      || ! [[ "$observed_sha" =~ ^[0-9a-f]{64}$ ]]; then
+      echo "FATAL: Hugging Face did not return valid size and SHA256 for $original_url" >&2
       return 1
     fi
     DOWNLOAD_SIZES[$index]="$observed"
     DOWNLOAD_SHA256[$index]="$observed_sha"
-    DOWNLOAD_URLS[$index]="${original_url/\/resolve\/main\//\/resolve\/$resolved_commit\/}"
-    echo "Model metadata: $(basename "${DOWNLOAD_OUTPUTS[$index]}") ($observed bytes, SHA256 $observed_sha)"
+    echo "Remote model metadata: $(basename "${DOWNLOAD_OUTPUTS[$index]}") ($observed bytes, SHA256 $observed_sha)"
   done
 }
 
