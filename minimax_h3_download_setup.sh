@@ -608,6 +608,13 @@ prepare_local_models() {
       quarantine_invalid_file "$out" "outdated or invalid model"
     fi
 
+    local marker="${part}.expected-sha256"
+    if [ -e "$part" ]; then
+      if [ ! -f "$marker" ] || [ "$(cat "$marker")" != "${DOWNLOAD_SHA256[$index]}" ]; then
+        quarantine_invalid_file "$part" "partial model from an older Hugging Face revision"
+      fi
+    fi
+    printf '%s\\n' "${DOWNLOAD_SHA256[$index]}" > "$marker"
     if [ -e "$part" ]; then
       actual="$(file_size "$part")"
       if [ "$actual" -gt "$expected" ]; then
@@ -616,6 +623,7 @@ prepare_local_models() {
         if validate_model_file "$part" "$expected" "${DOWNLOAD_SHA256[$index]}" \
           && [ "$(sha256_file "$part")" = "${DOWNLOAD_SHA256[$index]}" ]; then
           mv "$part" "$out"
+          rm -f "$marker"
           echo "Recovered complete model from partial file: $(basename "$out")"
         else
           quarantine_invalid_file "$part" "invalid complete partial model"
@@ -1098,13 +1106,3 @@ select_model_priority() {
       FIRST_MODEL_NAME="REF2VA"
       DEFERRED_MODEL_INDEX=0
       DEFERRED_MODEL_NAME="FL2VA"
-      ;;
-  esac
-
-  echo "Startup priority: $FIRST_MODEL_NAME is required before ComfyUI starts; $DEFERRED_MODEL_NAME will download in the background."
-}
-
-prepare_local_models() {
-  local index out part expected actual
-  for index in "${!DOWNLOAD_OUTPUTS[@]}"; do
-    out="${DOWNLOAD_OUTPUTS[$index]}"
