@@ -492,13 +492,7 @@ init_model_manifest() {
     "$COMFY/models/vae/minimax_h3_audio_vae_fp32.safetensors"
     "$COMFY/models/vae/minimax_h3_video_vae_fp16.safetensors"
   )
-  DOWNLOAD_SIZES=(
-    "20970379616"
-    "66280487368"
-    "15687142551"
-    "605254808"
-    "5207808496"
-  )
+  DOWNLOAD_SIZES=("0" "0" "0" "0" "0")
   DOWNLOAD_SHA256=(
     "e889202c41dafb67b10d67b97f0d8541508036a6090af23425a5c2615d03c47a"
     "e32c54c1a7b4f5f397f195cea267ccb18806303bb665678c4bee60953bdf3026"
@@ -526,7 +520,7 @@ init_model_manifest() {
       "$COMFY/models/latent_upscale_models/minimax_h3_latent_upscaler_3d_bf16.safetensors"
       "$COMFY/models/vae_approx/taeh3.safetensors"
     )
-    DOWNLOAD_SIZES+=("3171670912" "690592992" "9791388")
+    DOWNLOAD_SIZES+=("0" "0" "0")
     DOWNLOAD_SHA256+=(
       "9bb2d96f218c76babd85e0611b85ca8fb330a90546c01a0005e8a58a59593410"
       "4f57821f5837f32f7142b67d815606dbd7550f194e5c769f7d6c3f83b146a5e6"
@@ -536,14 +530,16 @@ init_model_manifest() {
 }
 
 resolve_dynamic_model_sizes() {
-  local index=5 observed
-  observed="$(remote_size "${DOWNLOAD_URLS[$index]}")"
-  if ! [[ "$observed" =~ ^[0-9]+$ ]] || [ "$observed" -le 0 ]; then
-    echo "FATAL: Could not resolve the pinned Ref2VA Turbo LoRA file size from Hugging Face." >&2
-    return 1
-  fi
-  DOWNLOAD_SIZES[$index]="$observed"
-  echo "Pinned LoRA size resolved: $(basename "${DOWNLOAD_OUTPUTS[$index]}") ($observed bytes)"
+  local index observed
+  for index in "${!DOWNLOAD_URLS[@]}"; do
+    observed="$(remote_size "${DOWNLOAD_URLS[$index]}")"
+    if ! [[ "$observed" =~ ^[0-9]+$ ]] || [ "$observed" -le 0 ]; then
+      echo "FATAL: Could not resolve remote file size for $(basename "${DOWNLOAD_OUTPUTS[$index]}") from Hugging Face." >&2
+      return 1
+    fi
+    DOWNLOAD_SIZES[$index]="$observed"
+    echo "Remote size resolved: $(basename "${DOWNLOAD_OUTPUTS[$index]}") ($observed bytes)"
+  done
 }
 
 select_model_priority() {
@@ -891,14 +887,14 @@ validate_model_group() {
       echo "FATAL: Final validation failed for $out" >&2
       return 1
     fi
-    if [ "${MINIMAX_H3_VERIFY_SHA256:-0}" = "1" ]; then
-      echo "Hashing $(basename "$out")..."
-      actual_sha256="$(sha256_file "$out")"
-      if [ "$actual_sha256" != "${DOWNLOAD_SHA256[$index]}" ]; then
-        echo "FATAL: SHA256 validation failed for $out" >&2
-        quarantine_invalid_file "$out" "model with a SHA256 mismatch"
-        return 1
-      fi
+    echo "Checking SHA256: $(basename "$out")..."
+    actual_sha256="$(sha256_file "$out")"
+    if [ "$actual_sha256" != "${DOWNLOAD_SHA256[$index]}" ]; then
+      echo "FATAL: SHA256 mismatch for $out" >&2
+      echo "Expected: ${DOWNLOAD_SHA256[$index]}" >&2
+      echo "Actual:   $actual_sha256" >&2
+      quarantine_invalid_file "$out" "model with a SHA256 mismatch"
+      return 1
     fi
   done
   echo "Validated $label."
