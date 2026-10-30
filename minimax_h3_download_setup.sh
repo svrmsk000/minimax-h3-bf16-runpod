@@ -614,7 +614,7 @@ prepare_local_models() {
         quarantine_invalid_file "$part" "partial model from an older Hugging Face revision"
       fi
     fi
-    printf '%s\\n' "${DOWNLOAD_SHA256[$index]}" > "$marker"
+    printf '%s\n' "${DOWNLOAD_SHA256[$index]}" > "$marker"
     if [ -e "$part" ]; then
       actual="$(file_size "$part")"
       if [ "$actual" -gt "$expected" ]; then
