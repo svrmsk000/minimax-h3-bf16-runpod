@@ -540,8 +540,8 @@ resolve_dynamic_model_sizes() {
         echo "FATAL: Could not read current Hugging Face model metadata: $original_url" >&2
         return 1
       }
-    observed="$(printf '%s\\n' "$metadata" | awk 'tolower($1)=="x-linked-size:" {gsub(/\\r/, "", $2); size=$2} END {print size}')"
-    observed_sha="$(printf '%s\\n' "$metadata" | awk 'tolower($1)=="x-linked-etag:" {gsub(/[\\r"]/, "", $2); sub(/^sha256:/, "", $2); hash=$2} END {print tolower(hash)}')"
+    observed="$(printf '%s\n' "$metadata" | awk 'tolower($1)=="x-linked-size:" {gsub(/\r/, "", $2); size=$2} END {print size}')"
+    observed_sha="$(printf '%s\n' "$metadata" | awk 'tolower($1)=="x-linked-etag:" {gsub(/[\r"]/, "", $2); sub(/^sha256:/, "", $2); hash=$2} END {print tolower(hash)}')"
     if ! [[ "$observed" =~ ^[0-9]+$ ]] || [ "$observed" -le 0 ] \
       || ! [[ "$observed_sha" =~ ^[0-9a-f]{64}$ ]]; then
       echo "FATAL: Hugging Face did not return valid size and SHA256 for $original_url" >&2
