@@ -535,9 +535,9 @@ resolve_dynamic_model_sizes() {
         echo "FATAL: Could not read current Hugging Face model metadata: $original_url" >&2
         return 1
       }
-    observed="$(printf '%s\\n' "$metadata" | awk 'tolower($1)=="x-linked-size:" {gsub(/\\r/, "", $2); size=$2} END {print size}')"
-    observed_sha="$(printf '%s\\n' "$metadata" | awk 'tolower($1)=="x-linked-etag:" {gsub(/[\\r"]/, "", $2); sub(/^sha256:/, "", $2); hash=$2} END {print tolower(hash)}')"
-    resolved_commit="$(printf '%s\\n' "$metadata" | awk 'tolower($1)=="x-repo-commit:" {gsub(/[\\r"]/, "", $2); commit=$2} END {print commit}')"
+    observed="$(printf '%s\n' "$metadata" | awk 'tolower($1)=="x-linked-size:" {gsub(/\r/, "", $2); size=$2} END {print size}')"
+    observed_sha="$(printf '%s\n' "$metadata" | awk 'tolower($1)=="x-linked-etag:" {gsub(/[\r"]/, "", $2); sub(/^sha256:/, "", $2); hash=$2} END {print tolower(hash)}')"
+    resolved_commit="$(printf '%s\n' "$metadata" | awk 'tolower($1)=="x-repo-commit:" {gsub(/[\r"]/, "", $2); commit=$2} END {print commit}')"
     if ! [[ "$observed" =~ ^[0-9]+$ ]] || [ "$observed" -le 0 ] \
       || ! [[ "$observed_sha" =~ ^[0-9a-f]{64}$ ]] \
       || ! [[ "$resolved_commit" =~ ^[0-9a-f]{40}$ ]]; then
