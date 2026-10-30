@@ -11,15 +11,19 @@ source "$repo_root/minimax_h3_download_setup.sh"
 
 GPU_FAMILY=ada
 init_model_manifest
-[ "${#DOWNLOAD_OUTPUTS[@]}" = "8" ]
-[ "${SEED_HUNTER_DOWNLOADS[*]}" = "5 6 7" ]
-[[ "${DOWNLOAD_OUTPUTS[5]}" = */models/vae/minimax_h3_video_vae_int8_convrot.safetensors ]]
-[[ "${DOWNLOAD_OUTPUTS[6]}" = */models/latent_upscale_models/minimax_h3_latent_upscaler_3d_bf16.safetensors ]]
-[[ "${DOWNLOAD_OUTPUTS[7]}" = */models/vae_approx/taeh3.safetensors ]]
+[ "${#DOWNLOAD_OUTPUTS[@]}" = "9" ]
+[ "${SEED_HUNTER_DOWNLOADS[*]}" = "6 7 8" ]
+[[ "${DOWNLOAD_OUTPUTS[5]}" = */models/loras/minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors ]]
+[[ "${DOWNLOAD_OUTPUTS[6]}" = */models/vae/minimax_h3_video_vae_int8_convrot.safetensors ]]
+[[ "${DOWNLOAD_OUTPUTS[7]}" = */models/latent_upscale_models/minimax_h3_latent_upscaler_3d_bf16.safetensors ]]
+[[ "${DOWNLOAD_OUTPUTS[8]}" = */models/vae_approx/taeh3.safetensors ]]
+remote_size() { echo 2100000000; }
+resolve_dynamic_model_sizes >/dev/null
+[ "${DOWNLOAD_SIZES[5]}" = "2100000000" ]
 
 GPU_FAMILY=ampere
 init_model_manifest
-[ "${#DOWNLOAD_OUTPUTS[@]}" = "5" ]
+[ "${#DOWNLOAD_OUTPUTS[@]}" = "6" ]
 [ "${#SEED_HUNTER_DOWNLOADS[@]}" = "0" ]
 GPU_FAMILY=ada
 
