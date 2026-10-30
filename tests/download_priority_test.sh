@@ -19,7 +19,9 @@ init_model_manifest
 [[ "${DOWNLOAD_OUTPUTS[8]}" = */models/vae_approx/taeh3.safetensors ]]
 remote_size() { echo 2100000000; }
 resolve_dynamic_model_sizes >/dev/null
-[ "${DOWNLOAD_SIZES[5]}" = "2100000000" ]
+for size in "${DOWNLOAD_SIZES[@]}"; do
+  [ "$size" = "2100000000" ]
+done
 
 GPU_FAMILY=ampere
 init_model_manifest
