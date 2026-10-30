@@ -91,6 +91,8 @@ grep -Fq 'SAGE_ATTENTION_MAJOR=${{ matrix.sage_major }}' \
 grep -Fq 'COMFY_SAGE_ATTENTION3=${{ matrix.comfy_sage3 }}' \
   "$repo_root/.github/workflows/docker-publish.yml"
 grep -Fq 'sageattention3_blackwell' "$repo_root/Dockerfile"
+grep -Fq "grep -Fq -- '--threads 4' /tmp/SageAttention/sageattention3_blackwell/setup.py" "$repo_root/Dockerfile"
+grep -Fq 's/--threads 4/--threads 1/g' "$repo_root/Dockerfile"
 grep -Fq 'COPY --from=cuda-devel /usr/local/cuda/targets/x86_64-linux/lib/stubs/' \
   "$repo_root/Dockerfile"
 grep -Fq 'LIBRARY_PATH=/usr/local/cuda/lib64/stubs' "$repo_root/Dockerfile"
