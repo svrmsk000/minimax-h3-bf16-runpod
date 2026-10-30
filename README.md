@@ -10,7 +10,7 @@ A separate RunPod/ComfyUI deployment based on [Nightfall93/runpod-comfyui-minima
 - **VAEs:** upstream FP32 audio VAE and FP16 video VAE are retained.
 - Seed Hunter auxiliary models, custom nodes, ComfyUI core, Pixaroma H3, SageAttention build matrix, startup/preflight logic, and the twelve workflows are retained.
 
-The BF16 Ref2VA weights are downloaded to the container disk on first startup. They are not baked into the Docker image. The five blocking base assets total approximately 108.75 GB (101.3 GiB), before the additional Seed Hunter assets, generated output, and safety reserve. Configure **at least 150 GB Container Disk**; 160 GB or more gives more practical headroom.
+The BF16 Ref2VA weights are downloaded to the container disk on first startup. They are not baked into the Docker image. The five base assets plus the pinned Ref2VA Turbo 4-step LoRA total approximately 110.71 GB (103.1 GiB), before the additional Seed Hunter assets, generated output, and safety reserve. The LoRA is downloaded into `models/loras/` before ComfyUI starts. Configure **at least 150 GB Container Disk**; 160 GB or more gives more practical headroom.
 
 A 32 GB GPU does not mean the full BF16 weights fit entirely in VRAM. Actual generation depends on ComfyUI's model offload behavior, system RAM, resolution, frame count, and workflow settings. This repository does not promise that every BF16 workflow will fit a given GPU configuration.
 
