@@ -9,6 +9,7 @@ STATUS_FILE="${MINIMAX_H3_STATUS_FILE:-/workspace/runpod-slim/minimax-h3-downloa
 BUNDLE_ROOT="${MINIMAX_H3_BUNDLE_ROOT:-/opt/minimax-h3-bundle}"
 MODEL_REVISION="eb8a16107c595128b3a578f82d2ce2f75920c355"
 REF2VA_BF16_REVISION="3f57e8291d2ef846f9a074b1b76d2767db434abe"
+REF2VA_TURBO_LORA_REVISION="0fea91688aefb62d4eb94d5952f277f46c298284"
 EXPECTED_CORE_COMMIT="${COMFYUI_H3_COMMIT:-12d5279438bfefc058a269eae805ceab6047777f}"
 PIXAROMA_COMMIT="${PIXAROMA_H3_COMMIT:-433bbedc7f43d717fcb9e8e9aa9cbd26b0439226}"
 GPU_FAMILY="${MINIMAX_H3_GPU_FAMILY:-ada}"
@@ -474,6 +475,7 @@ PY_WORKFLOWS
 init_model_manifest() {
   local base="https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/$MODEL_REVISION"
   local ref2va_base="https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/$REF2VA_BF16_REVISION"
+  local lora_base="https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/$REF2VA_TURBO_LORA_REVISION"
   SEED_HUNTER_DOWNLOADS=()
   DOWNLOAD_KINDS=("MODEL" "MODEL" "TE" "VAE" "VAE")
   DOWNLOAD_URLS=(
@@ -505,8 +507,14 @@ init_model_manifest() {
     "7c1f131492e7eddacaac9069a61b81bdd39de5cc96561e677c5eab1cdce5e522"
   )
 
+  DOWNLOAD_KINDS+=("LORA")
+  DOWNLOAD_URLS+=("$lora_base/loras/minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors")
+  DOWNLOAD_OUTPUTS+=("$COMFY/models/loras/minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors")
+  DOWNLOAD_SIZES+=("0")
+  DOWNLOAD_SHA256+=("5b9ab5ade15d0775676d01a907268a69a1468dc6033b3b0d3ded5502f3ebb84c")
+
   if seed_hunter_enabled; then
-    SEED_HUNTER_DOWNLOADS=(5 6 7)
+    SEED_HUNTER_DOWNLOADS=(6 7 8)
     DOWNLOAD_KINDS+=("VAE" "UPSCALE" "VAE-APPROX")
     DOWNLOAD_URLS+=(
       "https://huggingface.co/Kijai/MiniMax-H3-experimental/resolve/f4cac997f880e93cf6940af61ee8d58ef31ff7f3/minimax_h3_video_vae_int8_convrot.safetensors"
@@ -525,6 +533,17 @@ init_model_manifest() {
       "f0f60fa072089997f817402098c2fd90777cb2660dd79cf5df42fc1e3e08e527"
     )
   fi
+}
+
+resolve_dynamic_model_sizes() {
+  local index=5 observed
+  observed="$(remote_size "${DOWNLOAD_URLS[$index]}")"
+  if ! [[ "$observed" =~ ^[0-9]+$ ]] || [ "$observed" -le 0 ]; then
+    echo "FATAL: Could not resolve the pinned Ref2VA Turbo LoRA file size from Hugging Face." >&2
+    return 1
+  fi
+  DOWNLOAD_SIZES[$index]="$observed"
+  echo "Pinned LoRA size resolved: $(basename "${DOWNLOAD_OUTPUTS[$index]}") ($observed bytes)"
 }
 
 select_model_priority() {
@@ -596,6 +615,7 @@ preflight_remote_models() {
     expected="${DOWNLOAD_SIZES[$index]}"
     expected_revision="$MODEL_REVISION"
     [ "$index" -eq 1 ] && expected_revision="$REF2VA_BF16_REVISION"
+    [ "$index" -eq 5 ] && expected_revision="$REF2VA_TURBO_LORA_REVISION"
     if [ "$observed" != "$expected" ]; then
       echo "FATAL: Remote-size preflight failed for $(basename "${DOWNLOAD_OUTPUTS[$index]}")." >&2
       echo "Expected $expected bytes from revision $expected_revision; observed ${observed:-unknown}." >&2
@@ -993,17 +1013,18 @@ main() {
   validate_installed_workflows
 
   init_model_manifest
+  resolve_dynamic_model_sizes
   select_model_priority
-  foreground_downloads=("$FIRST_MODEL_INDEX" 2 3 4)
+  foreground_downloads=("$FIRST_MODEL_INDEX" 2 3 4 5)
   background_downloads=("$DEFERRED_MODEL_INDEX" "${SEED_HUNTER_DOWNLOADS[@]}")
   prepare_local_models
   preflight_remote_models
   preflight_disk_space
 
   write_status "foreground-downloading" \
-    "Downloading $FIRST_MODEL_NAME and all three shared assets before ComfyUI starts."
+    "Downloading $FIRST_MODEL_NAME, the Ref2VA Turbo LoRA, and all shared assets before ComfyUI starts."
   download_group "MINIMAX-H3-FOREGROUND" "${foreground_downloads[@]}"
-  validate_model_group "$FIRST_MODEL_NAME and all three shared model assets" \
+  validate_model_group "$FIRST_MODEL_NAME, Ref2VA Turbo LoRA, and all shared model assets" \
     "${foreground_downloads[@]}"
 
   patch_start_credentials
@@ -1019,7 +1040,7 @@ main() {
 
   notify_ntfy \
     "MiniMax H3 foreground models ready" "high" "white_check_mark" \
-    "$FIRST_MODEL_NAME, the Qwen text encoder, and audio/video VAEs are ready. ComfyUI is starting while $DEFERRED_MODEL_NAME downloads in the background."
+    "$FIRST_MODEL_NAME, Ref2VA Turbo LoRA, Qwen text encoder, and audio/video VAEs are ready. ComfyUI is starting while $DEFERRED_MODEL_NAME downloads in the background."
   start_deferred_model_download "$DEFERRED_MODEL_NAME" "${background_downloads[@]}"
   echo "=== MiniMax H3 $FIRST_MODEL_NAME workflows are ready ==="
   echo "Returning to wrapper. SageAttention bootstrap will run next."
