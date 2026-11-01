@@ -8,6 +8,7 @@ DOWNLOAD_JOBS="${MINIMAX_H3_DOWNLOAD_JOBS:-2}"
 STATUS_FILE="${MINIMAX_H3_STATUS_FILE:-/workspace/runpod-slim/minimax-h3-download.status}"
 BUNDLE_ROOT="${MINIMAX_H3_BUNDLE_ROOT:-/opt/minimax-h3-bundle}"
 MODEL_REVISION="eb8a16107c595128b3a578f82d2ce2f75920c355"
+TEXT_ENCODER_REVISION="3f57e8291d2ef846f9a074b1b76d2767db434abe"
 REF2VA_BF16_REVISION="3f57e8291d2ef846f9a074b1b76d2767db434abe"
 REF2VA_TURBO_LORA_REVISION="0fea91688aefb62d4eb94d5952f277f46c298284"
 EXPECTED_CORE_COMMIT="${COMFYUI_H3_COMMIT:-12d5279438bfefc058a269eae805ceab6047777f}"
@@ -423,7 +424,7 @@ if len(files) != expected_count:
 required_models = {
     "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
     "minimax_h3_ref2va_bf16.safetensors",
-    "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+    "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
     "minimax_h3_audio_vae_fp32.safetensors",
     "minimax_h3_video_vae_fp16.safetensors",
 }
@@ -476,19 +477,20 @@ init_model_manifest() {
   local base="https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/$MODEL_REVISION"
   local ref2va_base="https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/$REF2VA_BF16_REVISION"
   local lora_base="https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/$REF2VA_TURBO_LORA_REVISION"
+  local text_encoder_base="https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/$TEXT_ENCODER_REVISION"
   SEED_HUNTER_DOWNLOADS=()
   DOWNLOAD_KINDS=("MODEL" "MODEL" "TE" "VAE" "VAE")
   DOWNLOAD_URLS=(
     "$base/diffusion_models/minimax_h3_fl2va_pruned_int8_convrot.safetensors"
     "$ref2va_base/diffusion_models/minimax_h3_ref2va_bf16.safetensors"
-    "$base/text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors"
+    "$text_encoder_base/text_encoders/qwen3vl_32b_minimax_h3_int8_convrot.safetensors"
     "$base/vae/minimax_h3_audio_vae_fp32.safetensors"
     "$base/vae/minimax_h3_video_vae_fp16.safetensors"
   )
   DOWNLOAD_OUTPUTS=(
     "$COMFY/models/diffusion_models/h3/minimax_h3_fl2va_pruned_int8_convrot.safetensors"
     "$COMFY/models/diffusion_models/h3/minimax_h3_ref2va_bf16.safetensors"
-    "$COMFY/models/text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors"
+    "$COMFY/models/text_encoders/qwen3vl_32b_minimax_h3_int8_convrot.safetensors"
     "$COMFY/models/vae/minimax_h3_audio_vae_fp32.safetensors"
     "$COMFY/models/vae/minimax_h3_video_vae_fp16.safetensors"
   )
@@ -496,7 +498,7 @@ init_model_manifest() {
   DOWNLOAD_SHA256=(
     "e889202c41dafb67b10d67b97f0d8541508036a6090af23425a5c2615d03c47a"
     "e32c54c1a7b4f5f397f195cea267ccb18806303bb665678c4bee60953bdf3026"
-    "35a88d51044231fe332301d7a62aa81e3f2cba62febeb446e2c1e3e0ef76f2c6"
+    "bc2ced0fbea64757fa9acddccfc0b3f4819d1dcf1da6c124d690d368be283923"
     "8e505d95dd1561d47abd43d4238fd40d9bb1ae9e147ed0a4cba778d76ae4db48"
     "7c1f131492e7eddacaac9069a61b81bdd39de5cc96561e677c5eab1cdce5e522"
   )
@@ -611,6 +613,7 @@ preflight_remote_models() {
     expected="${DOWNLOAD_SIZES[$index]}"
     expected_revision="$MODEL_REVISION"
     [ "$index" -eq 1 ] && expected_revision="$REF2VA_BF16_REVISION"
+    [ "$index" -eq 2 ] && expected_revision="$TEXT_ENCODER_REVISION"
     [ "$index" -eq 5 ] && expected_revision="$REF2VA_TURBO_LORA_REVISION"
     if [ "$observed" != "$expected" ]; then
       echo "FATAL: Remote-size preflight failed for $(basename "${DOWNLOAD_OUTPUTS[$index]}")." >&2
