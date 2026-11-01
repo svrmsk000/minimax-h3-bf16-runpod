@@ -6,11 +6,11 @@ A separate RunPod/ComfyUI deployment based on [Nightfall93/runpod-comfyui-minima
 
 - **Ref2VA diffusion model:** `minimax_h3_ref2va_bf16.safetensors` — full BF16, 66,280,487,368 bytes (about 61.7 GiB), pinned to Hugging Face revision `3f57e8291d2ef846f9a074b1b76d2767db434abe`.
 - **FL2VA diffusion model:** upstream `minimax_h3_fl2va_pruned_int8_convrot.safetensors` is retained.
-- **Text encoder:** upstream Qwen3-VL-32B NVFP4-AWQ is retained.
+- **Text encoder:** official Comfy-Org Qwen3-VL-32B INT8 ConvRot (`qwen3vl_32b_minimax_h3_int8_convrot.safetensors`), pinned to Hugging Face revision `3f57e8291d2ef846f9a074b1b76d2767db434abe`.
 - **VAEs:** upstream FP32 audio VAE and FP16 video VAE are retained.
 - Seed Hunter auxiliary models, custom nodes, ComfyUI core, Pixaroma H3, SageAttention build matrix, startup/preflight logic, and the twelve workflows are retained.
 
-The BF16 Ref2VA weights are downloaded to the container disk on first startup. They are not baked into the Docker image. The five base assets plus the pinned Ref2VA Turbo 4-step LoRA total approximately 110.71 GB (103.1 GiB), before the additional Seed Hunter assets, generated output, and safety reserve. The LoRA is downloaded into `models/loras/` before ComfyUI starts. Configure **at least 150 GB Container Disk**; 160 GB or more gives more practical headroom.
+The BF16 Ref2VA weights are downloaded to the container disk on first startup. They are not baked into the Docker image. The five base assets plus the pinned Ref2VA Turbo 4-step LoRA total approximately 122.16 GB (113.8 GiB), before the additional Seed Hunter assets, generated output, and safety reserve. The LoRA is downloaded into `models/loras/` before ComfyUI starts. Configure **at least 150 GB Container Disk**; 160 GB or more gives more practical headroom.
 
 A 32 GB GPU does not mean the full BF16 weights fit entirely in VRAM. Actual generation depends on ComfyUI's model offload behavior, system RAM, resolution, frame count, and workflow settings. This repository does not promise that every BF16 workflow will fit a given GPU configuration.
 
