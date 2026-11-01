@@ -13,6 +13,9 @@ GPU_FAMILY=ada
 init_model_manifest
 [ "${#DOWNLOAD_OUTPUTS[@]}" = "9" ]
 [ "${SEED_HUNTER_DOWNLOADS[*]}" = "6 7 8" ]
+[[ "${DOWNLOAD_OUTPUTS[2]}" = */models/text_encoders/qwen3vl_32b_minimax_h3_int8_convrot.safetensors ]]
+[[ "${DOWNLOAD_URLS[2]}" = *"/resolve/3f57e8291d2ef846f9a074b1b76d2767db434abe/text_encoders/qwen3vl_32b_minimax_h3_int8_convrot.safetensors" ]]
+[[ "${DOWNLOAD_SHA256[2]}" = "bc2ced0fbea64757fa9acddccfc0b3f4819d1dcf1da6c124d690d368be283923" ]]
 [[ "${DOWNLOAD_OUTPUTS[5]}" = */models/loras/minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors ]]
 [[ "${DOWNLOAD_OUTPUTS[6]}" = */models/vae/minimax_h3_video_vae_int8_convrot.safetensors ]]
 [[ "${DOWNLOAD_OUTPUTS[7]}" = */models/latent_upscale_models/minimax_h3_latent_upscaler_3d_bf16.safetensors ]]
