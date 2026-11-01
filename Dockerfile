@@ -109,6 +109,11 @@ RUN COMFYUI_COMMIT="$COMFYUI_H3_COMMIT" \
     && rm -f /tmp/bake_comfyui_core.sh /tmp/bake_custom_nodes.sh \
       /tmp/comfyui-sage3-global.patch
 
+# Ensure the retired NVFP4 text encoder is not present in either ComfyUI location.
+RUN rm -f \
+    /opt/comfyui-baked/models/text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors \
+    /workspace/runpod-slim/ComfyUI/models/text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors
+
 COPY asset-manifest.tsv /opt/minimax-h3-bundle/asset-manifest.tsv
 COPY seed-hunter-node-lock.tsv /opt/minimax-h3-bundle/seed-hunter-node-lock.tsv
 COPY workflows/ /opt/minimax-h3-bundle/workflows/
