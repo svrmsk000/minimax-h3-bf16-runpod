@@ -200,15 +200,28 @@ PY_CUDA
 }
 
 ensure_comfyui() {
-  # The RunPod base normally copies ComfyUI on first boot. Creating the target
-  # first breaks that path, so copy the image-baked source only when main.py is absent.
-  if [ ! -f "$COMFY/main.py" ]; then
-    echo "ComfyUI not found in /workspace yet. Copying the pinned H3 build..."
-    test -f "$COMFY_BAKED/main.py"
-    mkdir -p /workspace/runpod-slim
-    cp -r "$COMFY_BAKED" "$COMFY"
+  # Replace the RunPod base ComfyUI core with this image pinned revision.
+  # Preserve user data, models, custom nodes, and the isolated Python venv.
+  test -f "$COMFY_BAKED/main.py"
+  mkdir -p /workspace/runpod-slim "$COMFY"
+  installed_commit=""
+  if [ -f "$COMFY/.minimax-h3-core-commit" ]; then
+    installed_commit="$(cat "$COMFY/.minimax-h3-core-commit")"
   fi
-
+  if [ "$installed_commit" != "$EXPECTED_CORE_COMMIT" ]; then
+    echo "Installing pinned ComfyUI core $EXPECTED_CORE_COMMIT."
+    for entry in "$COMFY"/* "$COMFY"/.[!.]*; do
+      [ -e "$entry" ] || [ -L "$entry" ] || continue
+      name="$(basename "$entry")"
+      case "$name" in
+        models|custom_nodes|user|input|output|temp|.venv-cu130|.venv) continue ;;
+      esac
+      rm -rf "$entry"
+    done
+    cp -a "$COMFY_BAKED/." "$COMFY/"
+  else
+    echo "Pinned ComfyUI core already installed: $installed_commit"
+  fi
   if [ ! -f "$COMFY/comfy_extras/nodes_minimax_h3.py" ] \
     || [ ! -f "$COMFY/comfy/text_encoders/minimax.py" ] \
     || [ ! -f "$COMFY/comfy/ldm/minimax/model.py" ]; then
