@@ -96,7 +96,7 @@ grep -Fq 'COPY --from=cuda-devel /usr/local/cuda/targets/x86_64-linux/lib/stubs/
   "$repo_root/Dockerfile"
 grep -Fq 'LIBRARY_PATH=/usr/local/cuda/lib64/stubs' "$repo_root/Dockerfile"
 grep -Fq 'COMFY_SAGE_ATTENTION3' "$repo_root/patches/comfyui-sage3-global.patch"
-grep -Fq 'ARG COMFYUI_COMMIT=12d5279438bfefc058a269eae805ceab6047777f' \
+grep -Fq 'ARG COMFYUI_COMMIT=63be2f9b82ad0dac88a7ceaa28a9cf3154125a18' \
   "$repo_root/Dockerfile"
 grep -Fq 'COPY seed-hunter-node-lock.tsv /opt/minimax-h3/seed-hunter-node-lock.tsv' \
   "$repo_root/Dockerfile"
