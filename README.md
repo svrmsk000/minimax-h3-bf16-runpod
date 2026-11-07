@@ -16,10 +16,10 @@ A 32 GB GPU does not mean the full BF16 weights fit entirely in VRAM. Actual gen
 
 ## RunPod template
 
-GitHub Actions builds two images:
+GitHub Actions builds the legacy image from `main` and the dedicated RTX 5090 image from `rtx5090-comfyui-0.42.1`:
 
 - Ada (compute capability 8.9; RTX 40/L40/L40S): `ghcr.io/svrmsk000/minimax-h3-bf16-runpod:cuda13-ada`
-- Blackwell (compute capability 12.0; RTX 50/RTX PRO Blackwell): `ghcr.io/svrmsk000/minimax-h3-bf16-runpod:cuda13-blackwell`
+- Blackwell legacy image (compute capability 12.0): `ghcr.io/svrmsk000/minimax-h3-bf16-runpod:cuda13-blackwell` (ComfyUI v0.34.0)\n- RTX 5090 image (compute capability 12.0; ComfyUI v0.42.1): `ghcr.io/svrmsk000/minimax-h3-bf16-runpod:cuda13-rtx5090-comfyui-0.42.1`
 
 Expose HTTP ports `8188`, `8080`, and `8888`; leave the container start command empty. The setup script, workflows, and prompt resources are baked into the image. Set `SETUP_SCRIPT_URL` only when you want a pod to use a newer setup script without rebuilding the image:
 
@@ -48,7 +48,7 @@ SETUP_SCRIPT_URL=https://raw.githubusercontent.com/svrmsk000/minimax-h3-bf16-run
 ## Preserved stack
 
 - RunPod CUDA 13.0 base image and PyTorch CUDA 13.0
-- ComfyUI v0.34.0 with native MiniMax H3 support
+- ComfyUI v0.42.1 with native MiniMax H3 support on the RTX 5090 branch; legacy `main` remains on v0.34.0
 - ComfyUI-Pixaroma H3 audio-sync nodes
 - SageAttention 2.2.0 for Ada and SageAttention 3 for Blackwell
 - Eleven pinned Seed Hunter custom-node repositories
