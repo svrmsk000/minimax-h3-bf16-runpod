@@ -21,7 +21,7 @@ GitHub Actions builds the legacy image from `main` and the dedicated RTX 5090 im
 - Ada (compute capability 8.9; RTX 40/L40/L40S): `ghcr.io/svrmsk000/minimax-h3-bf16-runpod:cuda13-ada`
 - Blackwell legacy image (compute capability 12.0): `ghcr.io/svrmsk000/minimax-h3-bf16-runpod:cuda13-blackwell` (ComfyUI v0.34.0)\n- RTX 5090 image (compute capability 12.0; ComfyUI v0.42.1): `ghcr.io/svrmsk000/minimax-h3-bf16-runpod:cuda13-rtx5090-comfyui-0.42.1`
 
-Expose HTTP ports `8188`, `8080`, and `8888`; leave the container start command empty. The setup script, workflows, and prompt resources are baked into the image. Set `SETUP_SCRIPT_URL` only when you want a pod to use a newer setup script without rebuilding the image:
+Expose HTTP ports `8188`, `8080`, `8888`, and `30010`; leave the container start command empty. The setup script, workflows, and prompt resources are baked into the image. Set `SETUP_SCRIPT_URL` only when you want a pod to use a newer setup script without rebuilding the image:
 
 ```text
 SETUP_SCRIPT_URL=https://raw.githubusercontent.com/svrmsk000/minimax-h3-bf16-runpod/main/minimax_h3_download_setup.sh
@@ -44,6 +44,33 @@ SETUP_SCRIPT_URL=https://raw.githubusercontent.com/svrmsk000/minimax-h3-bf16-run
 - `MINIMAX_H3_REFRESH_MEDIA=1`
 - `ENABLE_SAGE_ATTENTION=0` (emergency opt-out; Sage is required by default)
 - `SAGE_ATTENTION_RUNTIME_SMOKE=0` (skip the startup CUDA-kernel smoke test)
+- `MINIMAX_H3_ENABLE_SGLANG=1` (start SGLang Diffusion Ref2VA on port 30010 alongside the RunPod services)
+- `SGLANG_VENV` (optional isolated SGLang virtualenv path; default `/workspace/runpod-slim/sglang-venv`)
+- `SGLANG_DIT_RESIDENT_LAYERS` (default 4)
+- `SGLANG_VIDEO_VAE_RESIDENT_LAYERS` (default 36)
+- `SGLANG_WARMUP_RESOLUTIONS` (default `1344x768`)
+- `SGLANG_WARMUP_NUM_FRAMES` (default 124)
+
+## SGLang Diffusion (RTX 5090)
+
+The dedicated branch `sglang-rtx5090-comfyui-0.42.1` adds an optional SGLang Diffusion Ref2VA server without replacing ComfyUI 0.42.1 or its Python environment.
+
+Set `MINIMAX_H3_ENABLE_SGLANG=1` in the RunPod template and expose HTTP port `30010`. The first startup installs SGLang Diffusion into a separate virtual environment at `/workspace/runpod-slim/sglang-venv`; later restarts reuse it. ComfyUI remains available on port `8188`.
+
+SGLang uses the official model repository ID `MiniMaxAI/MiniMax-H3` for model configuration and resolves the already-downloaded local component weights through explicit overrides:
+
+- Ref2VA BF16 transformer: `models/diffusion_models/h3/minimax_h3_ref2va_bf16.safetensors`
+- Qwen3-VL INT8 ConvRot text encoder: `models/text_encoders/qwen3vl_32b_minimax_h3_int8_convrot.safetensors`
+- FP16 video VAE: `models/vae/minimax_h3_video_vae_fp16.safetensors`
+- FP32 audio VAE: `models/vae/minimax_h3_audio_vae_fp32.safetensors`
+
+This avoids downloading another copy of the large model weights. Hugging Face may still be used for small model configuration/tokenizer metadata; set `HF_TOKEN` if access or rate limits require it.
+
+The SGLang server is configured for one GPU, Ref2VA, memory-oriented layerwise offload, four resident DiT layers, 36 resident video-VAE layers, 1344x768 warmup, 124 frames, and port 30010. These are configurable through the environment variables listed above.
+
+**Do not run a ComfyUI H3 generation and an SGLang generation at the same time on the same RTX 5090.** Both services are exposed for convenience, but they share one GPU. The SGLang launcher checks that all four local model files exist before starting.
+
+To keep the ComfyUI-only behavior, leave `MINIMAX_H3_ENABLE_SGLANG` unset or set it to `0`.
 
 ## Preserved stack
 
