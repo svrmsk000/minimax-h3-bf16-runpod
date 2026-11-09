@@ -41,7 +41,11 @@ sage_bootstrap_main
 
 if [ "${MINIMAX_H3_ENABLE_SGLANG:-0}" = "1" ]; then
   echo "SGLang mode enabled; ComfyUI 0.42.1 will remain available on port 8188."
-  bash /opt/minimax-h3/sglang/install_sglang.sh
+  if [ ! -x "${SGLANG_VENV:-/opt/minimax-h3/sglang-venv}/bin/sglang" ]; then
+    echo "FATAL: SGLang is not preinstalled in the image at ${SGLANG_VENV:-/opt/minimax-h3/sglang-venv}." >&2
+    echo "Use the SGLang-enabled image tag; startup does not install packages." >&2
+    exit 1
+  fi
 
   bash /opt/minimax-h3/sglang/start_minimax_h3_ref2va.sh &
   SGLANG_PID=$!
