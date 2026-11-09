@@ -123,9 +123,9 @@ COPY tests/validate_bundle.py /tmp/validate_bundle.py
 RUN python3 /tmp/validate_bundle.py --root /opt/minimax-h3-bundle \
     && rm -f /tmp/validate_bundle.py
 
-RUN apt-get update \\
-    && apt-get install -y --no-install-recommends init-system-helpers \\
-    && rm -rf /var/lib/apt/lists/* \\
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends init-system-helpers \
+    && rm -rf /var/lib/apt/lists/* \
     && command -v service
 
 COPY sglang/ /opt/minimax-h3/sglang/
