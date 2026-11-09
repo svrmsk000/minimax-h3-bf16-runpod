@@ -33,6 +33,11 @@ echo "Model configuration/tokenizer source: $MODEL_DIR"
 echo "Transformer, text encoder and VAEs: existing ComfyUI model files."
 echo "SGLang API: http://0.0.0.0:30010"
 
+EXTRA_ARGS=()
+if [ -n "${SGLANG_EXTRA_ARGS:-}" ]; then
+  read -r -a EXTRA_ARGS <<< "$SGLANG_EXTRA_ARGS"
+fi
+
 exec "$VENV/bin/sglang" serve \
   --model-path "$MODEL_DIR" \
   --component-weights-paths.transformer "$TRANSFORMER" \
@@ -49,4 +54,4 @@ exec "$VENV/bin/sglang" serve \
   --warmup-num-frames "${SGLANG_WARMUP_NUM_FRAMES:-124}" \
   --host "${SGLANG_HOST:-0.0.0.0}" \
   --port "${SGLANG_PORT:-30010}" \
-  "${SGLANG_EXTRA_ARGS[@]:-}"
+  "${EXTRA_ARGS[@]}"
