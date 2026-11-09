@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-VENV="${SGLANG_VENV:-/workspace/runpod-slim/sglang-venv}"
+VENV="${SGLANG_VENV:-/opt/minimax-h3/sglang-venv}"
 PYTHON_BIN="${SGLANG_PYTHON_BIN:-python3.12}"
 INSTALL_SPEC="${SGLANG_INSTALL_SPEC:-sglang[diffusion]}"
 MAX_JOBS="${SGLANG_MAX_JOBS:-2}"
