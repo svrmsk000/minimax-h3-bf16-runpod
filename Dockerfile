@@ -123,6 +123,11 @@ COPY tests/validate_bundle.py /tmp/validate_bundle.py
 RUN python3 /tmp/validate_bundle.py --root /opt/minimax-h3-bundle \
     && rm -f /tmp/validate_bundle.py
 
+RUN apt-get update \\
+    && apt-get install -y --no-install-recommends init-system-helpers \\
+    && rm -rf /var/lib/apt/lists/* \\
+    && command -v service
+
 COPY sglang/ /opt/minimax-h3/sglang/
 COPY minimax_h3_download_setup.sh /opt/minimax-h3/minimax_h3_download_setup.sh
 COPY driver_preflight.sh /driver_preflight.sh
@@ -136,7 +141,8 @@ RUN bash -n /opt/minimax-h3/minimax_h3_download_setup.sh \
     && chmod +x /opt/minimax-h3/minimax_h3_download_setup.sh \
       /opt/minimax-h3/sglang/install_sglang.sh \
       /opt/minimax-h3/sglang/start_minimax_h3_ref2va.sh \
-      /driver_preflight.sh /entrypoint.sh /sage_bootstrap.sh
+      /driver_preflight.sh /entrypoint.sh /sage_bootstrap.sh \\
+    && ln -sf /opt/minimax-h3/sglang/sgmax /etc/init.d/sgmax
 
 # Bake SGLang into its own Python environment at image-build time.
 # This deliberately leaves the RunPod/ComfyUI Python and PyTorch untouched.
