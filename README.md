@@ -19,12 +19,12 @@ A 32 GB GPU does not mean the full BF16 weights fit entirely in VRAM. Actual gen
 GitHub Actions builds the legacy image from `main` and the dedicated RTX 5090 image from `rtx5090-comfyui-0.42.1`:
 
 - Ada (compute capability 8.9; RTX 40/L40/L40S): `ghcr.io/svrmsk000/minimax-h3-bf16-runpod:cuda13-ada`
-- Blackwell legacy image (compute capability 12.0): `ghcr.io/svrmsk000/minimax-h3-bf16-runpod:cuda13-blackwell` (ComfyUI v0.34.0)\n- RTX 5090 image (compute capability 12.0; ComfyUI v0.42.1): `ghcr.io/svrmsk000/minimax-h3-bf16-runpod:cuda13-rtx5090-comfyui-0.42.1`
+- Blackwell legacy image (compute capability 12.0): `ghcr.io/svrmsk000/minimax-h3-bf16-runpod:cuda13-blackwell` (ComfyUI v0.34.0)\n- RTX 5090 image (compute capability 12.0; ComfyUI v0.42.1): `ghcr.io/svrmsk000/minimax-h3-bf16-runpod:cuda13-rtx5090-comfyui-0.42.1` (ComfyUI only)\n- RTX 5090 + SGLang image (ComfyUI v0.42.1): `ghcr.io/svrmsk000/minimax-h3-bf16-runpod:cuda13-rtx5090-comfyui-0.42.1-sglang`
 
 Expose HTTP ports `8188`, `8080`, `8888`, and `30010`; leave the container start command empty. The setup script, workflows, and prompt resources are baked into the image. Set `SETUP_SCRIPT_URL` only when you want a pod to use a newer setup script without rebuilding the image:
 
 ```text
-SETUP_SCRIPT_URL=https://raw.githubusercontent.com/svrmsk000/minimax-h3-bf16-runpod/main/minimax_h3_download_setup.sh
+SETUP_SCRIPT_URL=https://raw.githubusercontent.com/svrmsk000/minimax-h3-bf16-runpod/sglang-rtx5090-comfyui-0.42.1/minimax_h3_download_setup.sh
 ```
 
 ## Supported environment variables
