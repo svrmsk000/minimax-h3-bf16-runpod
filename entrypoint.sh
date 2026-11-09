@@ -40,33 +40,15 @@ source /sage_bootstrap.sh
 sage_bootstrap_main
 
 if [ "${MINIMAX_H3_ENABLE_SGLANG:-0}" = "1" ]; then
-  echo "SGLang mode enabled; ComfyUI 0.42.1 will remain available on port 8188."
+  echo "SGLang auto-start enabled; starting service sgmax."
   if [ ! -x "${SGLANG_VENV:-/opt/minimax-h3/sglang-venv}/bin/sglang" ]; then
     echo "FATAL: SGLang is not preinstalled in the image at ${SGLANG_VENV:-/opt/minimax-h3/sglang-venv}." >&2
     echo "Use the SGLang-enabled image tag; startup does not install packages." >&2
     exit 1
   fi
-
-  bash /opt/minimax-h3/sglang/start_minimax_h3_ref2va.sh &
-  SGLANG_PID=$!
-
-  /start.sh &
-  COMFY_PID=$!
-
-  cleanup() {
-    set +e
-    kill "$SGLANG_PID" "$COMFY_PID" 2>/dev/null
-    wait "$SGLANG_PID" "$COMFY_PID" 2>/dev/null
-  }
-  trap cleanup EXIT INT TERM
-
-  echo "SGLang PID: $SGLANG_PID; RunPod services PID: $COMFY_PID"
-  set +e
-  wait -n "$SGLANG_PID" "$COMFY_PID"
-  status=$?
-  set -e
-  echo "One of the SGLang/RunPod service processes exited (status $status); stopping the other."
-  exit "$status"
+  service sgmax start
+else
+  echo "SGLang auto-start disabled. Start it any time with: service sgmax start"
 fi
 
 echo "Starting original RunPod ComfyUI services..."
