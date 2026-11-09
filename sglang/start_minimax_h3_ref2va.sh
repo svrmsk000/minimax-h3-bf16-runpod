@@ -2,7 +2,7 @@
 set -euo pipefail
 
 COMFY="${COMFY:-/workspace/runpod-slim/ComfyUI}"
-VENV="${SGLANG_VENV:-/workspace/runpod-slim/sglang-venv}"
+VENV="${SGLANG_VENV:-/opt/minimax-h3/sglang-venv}"
 MODEL_DIR="${MINIMAX_H3_SGLANG_MODEL_ID:-MiniMaxAI/MiniMax-H3}"
 
 TRANSFORMER="${MINIMAX_H3_REF2VA_MODEL:-$COMFY/models/diffusion_models/h3/minimax_h3_ref2va_bf16.safetensors}"
