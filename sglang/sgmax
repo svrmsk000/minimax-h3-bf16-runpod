@@ -49,7 +49,7 @@ do_start() {
   printf '%s\n' "$pid" > "$PIDFILE"
 
   sleep 2
-  if kill -0 "$pid" 2>/dev/null; then
+  if is_running; then
     echo "$NAME started (PID $pid)."
     return 0
   fi
@@ -74,7 +74,7 @@ do_stop() {
 
   local i
   for i in $(seq 1 30); do
-    if ! kill -0 "$pid" 2>/dev/null; then
+    if ! is_running; then
       rm -f "$PIDFILE"
       echo "$NAME stopped."
       return 0
