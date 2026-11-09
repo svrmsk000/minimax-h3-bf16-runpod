@@ -45,7 +45,7 @@ SETUP_SCRIPT_URL=https://raw.githubusercontent.com/svrmsk000/minimax-h3-bf16-run
 - `ENABLE_SAGE_ATTENTION=0` (emergency opt-out; Sage is required by default)
 - `SAGE_ATTENTION_RUNTIME_SMOKE=0` (skip the startup CUDA-kernel smoke test)
 - `MINIMAX_H3_ENABLE_SGLANG=1` (start SGLang Diffusion Ref2VA on port 30010 alongside the RunPod services)
-- `SGLANG_VENV` (optional isolated SGLang virtualenv path; default `/workspace/runpod-slim/sglang-venv`)
+- `SGLANG_VENV` (optional isolated SGLang virtualenv path; default `/opt/minimax-h3/sglang-venv`)
 - `SGLANG_DIT_RESIDENT_LAYERS` (default 4)
 - `SGLANG_VIDEO_VAE_RESIDENT_LAYERS` (default 36)
 - `SGLANG_WARMUP_RESOLUTIONS` (default `1344x768`)
@@ -55,7 +55,7 @@ SETUP_SCRIPT_URL=https://raw.githubusercontent.com/svrmsk000/minimax-h3-bf16-run
 
 The dedicated branch `sglang-rtx5090-comfyui-0.42.1` adds an optional SGLang Diffusion Ref2VA server without replacing ComfyUI 0.42.1 or its Python environment.
 
-Set `MINIMAX_H3_ENABLE_SGLANG=1` in the RunPod template and expose HTTP port `30010`. The first startup installs SGLang Diffusion into a separate virtual environment at `/workspace/runpod-slim/sglang-venv`; later restarts reuse it. ComfyUI remains available on port `8188`.
+SGLang Diffusion is installed and import-validated in a separate virtual environment at `/opt/minimax-h3/sglang-venv` while the Docker image is being built. No SGLang package installation occurs during Pod startup. Set `MINIMAX_H3_ENABLE_SGLANG=1` in the RunPod template to launch the preinstalled server on port `30010`; leave it unset or set it to `0` to skip SGLang. ComfyUI remains available on port `8188` and its Python/PyTorch environment is not modified.
 
 SGLang uses the official model repository ID `MiniMaxAI/MiniMax-H3` for model configuration and resolves the already-downloaded local component weights through explicit overrides:
 
