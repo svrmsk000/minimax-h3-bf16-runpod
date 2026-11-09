@@ -138,12 +138,10 @@ RUN bash -n /opt/minimax-h3/minimax_h3_download_setup.sh \
     /opt/minimax-h3/sglang/install_sglang.sh \
     /opt/minimax-h3/sglang/start_minimax_h3_ref2va.sh \
     /opt/minimax-h3/sglang/sgmax \
-      /opt/minimax-h3/sglang/sgmax \
-      /driver_preflight.sh /entrypoint.sh /sage_bootstrap.sh \
+    /driver_preflight.sh /entrypoint.sh /sage_bootstrap.sh \
     && chmod +x /opt/minimax-h3/minimax_h3_download_setup.sh \
       /opt/minimax-h3/sglang/install_sglang.sh \
       /opt/minimax-h3/sglang/start_minimax_h3_ref2va.sh \
-    /opt/minimax-h3/sglang/sgmax \
       /opt/minimax-h3/sglang/sgmax \
       /driver_preflight.sh /entrypoint.sh /sage_bootstrap.sh \
     && ln -sf /opt/minimax-h3/sglang/sgmax /etc/init.d/sgmax
