@@ -137,4 +137,14 @@ RUN bash -n /opt/minimax-h3/minimax_h3_download_setup.sh \
       /opt/minimax-h3/sglang/start_minimax_h3_ref2va.sh \
       /driver_preflight.sh /entrypoint.sh /sage_bootstrap.sh
 
+# Bake SGLang into its own Python environment at image-build time.
+# This deliberately leaves the RunPod/ComfyUI Python and PyTorch untouched.
+RUN SGLANG_VENV=/opt/minimax-h3/sglang-venv \
+    SGLANG_PYTHON_BIN=python3.12 \
+    TORCH_CUDA_ARCH_LIST=12.0 \
+    SGLANG_MAX_JOBS=2 \
+    bash /opt/minimax-h3/sglang/install_sglang.sh \
+    && /opt/minimax-h3/sglang-venv/bin/python -c "import sglang; print('Baked SGLang:', sglang.__file__)" \
+    && test -x /opt/minimax-h3/sglang-venv/bin/sglang
+
 ENTRYPOINT ["/entrypoint.sh"]
