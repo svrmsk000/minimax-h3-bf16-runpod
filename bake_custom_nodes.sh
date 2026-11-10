@@ -65,6 +65,13 @@ install_rife_model() {
 mkdir -p "$CUSTOM_NODES"
 : > "$REQS"
 
+# Install ComfyUI Manager into the baked custom-node tree.
+if [ ! -d "$CUSTOM_NODES/comfyui-manager" ]; then
+  echo "Baking ComfyUI Manager from Comfy-Org."
+  git clone --depth 1 https://github.com/Comfy-Org/ComfyUI-Manager.git "$CUSTOM_NODES/comfyui-manager"
+  rm -rf "$CUSTOM_NODES/comfyui-manager/.git"
+fi
+
 clone_pinned_node \
   "ComfyUI-Pixaroma" \
   "https://gitlab.com/pixaroma/ComfyUI-Pixaroma.git" \
