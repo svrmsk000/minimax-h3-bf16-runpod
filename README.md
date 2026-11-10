@@ -84,7 +84,7 @@ ComfyUI remains available on port `8188` and its Python/PyTorch environment is n
 
 This avoids downloading another copy of the large model weights. Hugging Face may still be used for small model configuration/tokenizer metadata; set `HF_TOKEN` if access or rate limits require it.
 
-The SGLang server is configured for one GPU, Ref2VA, memory-oriented layerwise offload, four resident DiT layers, 36 resident video-VAE layers, 1344x768 warmup, 124 frames, and port 30010. These are configurable through the environment variables listed above.
+The SGLang server supports one-, two-, and four-GPU Ref2VA profiles. All profiles use memory-oriented layerwise offload, 36 resident video-VAE layers, disabled Torch compile, 1344x768 warmup, 124 frames, and port 30010. The one-GPU profile uses four resident DiT layers; the two- and four-GPU profiles use 20 resident DiT layers, one prefetch layer, tensor parallel size 2, and encoder parallel auto. The four-GPU profile uses Ulysses degree 2. Select a profile with the service commands above.
 
 **Do not run a ComfyUI H3 generation and an SGLang generation at the same time on the same RTX 5090.** Both services are exposed for convenience, but they share one GPU. The SGLang launcher checks that all four local model files exist before starting.
 
