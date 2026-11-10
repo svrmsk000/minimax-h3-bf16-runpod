@@ -59,16 +59,21 @@ The dedicated branch `sglang-rtx5090-comfyui-0.42.1` adds an optional SGLang Dif
 
 SGLang Diffusion is installed and import-validated in a separate virtual environment at `/opt/minimax-h3/sglang-venv` while the Docker image is being built. No SGLang package installation occurs during Pod startup. The optional `MINIMAX_H3_ENABLE_SGLANG=1` setting controls **automatic startup only**; it does not control whether the service can be managed later from the console.
 
-Use these commands inside the running Pod:
+Select the GPU topology explicitly inside the running Pod:
 
 ```bash
-service sgmax start
-service sgmax stop
-service sgmax restart
+service sgmax 1 start   # one GPU
+service sgmax 2 start   # two GPUs: tensor parallel 2, Ulysses 1
+service sgmax 4 start   # four GPUs: tensor parallel 2, Ulysses 2
+service sgmax stop      # stop the selected SGLang server and its worker processes
 service sgmax status
 ```
 
-With `MINIMAX_H3_ENABLE_SGLANG=1`, the service starts automatically after the model setup completes. With it unset or set to `0`, ComfyUI starts alone, and you can start SGLang manually at any time using `service sgmax start`. Stopping SGLang does not stop ComfyUI or the Pod. The service log is at `/workspace/runpod-slim/logs/sglang.log`; the API listens on port `30010`.
+The legacy `service sgmax start` form remains an alias for the one-GPU profile. Only one SGLang instance can run at a time; stop it before switching GPU topology. The stop command does not depend on the selected GPU count and stops the active service.
+
+With `MINIMAX_H3_ENABLE_SGLANG=1`, the service starts automatically in the one-GPU profile after model setup completes. With it unset or set to `0`, ComfyUI starts alone, and you can select a profile manually at any time. Stopping SGLang does not stop ComfyUI or the Pod. The service log is at `/workspace/runpod-slim/logs/sglang.log`; the API listens on port `30010` for every profile.
+
+All profiles use Ref2VA, memory-oriented layerwise offload, disabled Torch compile, 1344x768 warmup, 124 frames, and the existing local ComfyUI model files. The one-GPU profile uses four resident DiT layers. The two- and four-GPU profiles use 20 resident DiT layers and one prefetch layer; the four-GPU profile additionally enables Ulysses degree 2. The multi-GPU profiles use tensor parallel size 2 and encoder parallel auto.
 
 ComfyUI remains available on port `8188` and its Python/PyTorch environment is not modified. SGLang uses the official model repository ID `MiniMaxAI/MiniMax-H3` for model configuration and resolves the already-downloaded local component weights through explicit overrides:
 
