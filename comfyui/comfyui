@@ -1,0 +1,128 @@
+#!/usr/bin/env bash
+### BEGIN INIT INFO
+# Provides:          comfyui
+# Required-Start:    $local_fs $remote_fs
+# Required-Stop:     $local_fs $remote_fs
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: ComfyUI server
+### END INIT INFO
+
+set -u
+NAME="comfyui"
+COMFY="${COMFY:-/workspace/runpod-slim/ComfyUI}"
+PIDFILE="${COMFYUI_PIDFILE:-/run/comfyui.pid}"
+LOGFILE="${COMFYUI_LOGFILE:-/tmp/comfyui.log}"
+
+pid_is_comfyui() {
+  local pid="$1" cmd cwd
+  [[ "$pid" =~ ^[0-9]+$ ]] || return 1
+  [ -r "/proc/$pid/cmdline" ] || return 1
+  cmd="$(tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null)" || return 1
+  cwd="$(readlink "/proc/$pid/cwd" 2>/dev/null)" || return 1
+  [[ "$cwd" == "$COMFY" ]] && [[ "$cmd" == *"main.py"* ]] && [[ "$cmd" == *"--port 8188"* ]]
+}
+
+find_existing_pid() {
+  local proc pid
+  for proc in /proc/[0-9]*; do
+    [ -r "$proc/cmdline" ] || continue
+    pid="$(basename "$proc")"
+    if pid_is_comfyui "$pid"; then printf '%s\n' "$pid"; return 0; fi
+  done
+  return 1
+}
+
+is_running() {
+  [ -s "$PIDFILE" ] || return 1
+  local pid
+  pid="$(cat "$PIDFILE" 2>/dev/null)" || return 1
+  pid_is_comfyui "$pid"
+}
+
+do_start() {
+  local pid
+  if is_running; then
+    echo "$NAME is already running (PID $(cat "$PIDFILE"))."
+    return 0
+  fi
+  rm -f "$PIDFILE"
+  if pid="$(find_existing_pid)"; then
+    printf '%s\n' "$pid" > "$PIDFILE"
+    echo "$NAME is already running (PID $pid); adopted existing process."
+    return 0
+  fi
+  if [ ! -f "$COMFY/main.py" ]; then
+    echo "ERROR: ComfyUI main.py not found: $COMFY/main.py" >&2
+    return 1
+  fi
+  mkdir -p "$(dirname "$PIDFILE")" "$(dirname "$LOGFILE")"
+  echo "Starting ComfyUI; log: $LOGFILE"
+  cd "$COMFY" || return 1
+  nohup setsid python3 main.py --listen 0.0.0.0 --port 8188 --enable-cors-header --preview-method none --high-ram --enable-manager >>"$LOGFILE" 2>&1 </dev/null &
+  pid=$!
+  printf '%s\n' "$pid" > "$PIDFILE"
+  sleep 2
+  if is_running; then
+    echo "$NAME started (PID $pid)."
+    return 0
+  fi
+  echo "ERROR: $NAME exited during startup. Last log lines:" >&2
+  tail -n 40 "$LOGFILE" >&2 || true
+  rm -f "$PIDFILE"
+  return 1
+}
+
+do_stop() {
+  local pid i
+  if ! is_running; then
+    rm -f "$PIDFILE"
+    if pid="$(find_existing_pid)"; then
+      echo "Stopping existing $NAME process (PID $pid)..."
+    else
+      echo "$NAME is not running."
+      return 0
+    fi
+  else
+    pid="$(cat "$PIDFILE")"
+    echo "Stopping $NAME (PID $pid)..."
+  fi
+  kill -TERM -- "-$pid" 2>/dev/null || kill -TERM "$pid" 2>/dev/null || true
+  for i in $(seq 1 30); do
+    if ! pid_is_comfyui "$pid"; then
+      rm -f "$PIDFILE"
+      echo "$NAME stopped."
+      return 0
+    fi
+    sleep 1
+  done
+  echo "$NAME did not stop gracefully; sending SIGKILL." >&2
+  kill -KILL -- "-$pid" 2>/dev/null || kill -KILL "$pid" 2>/dev/null || true
+  rm -f "$PIDFILE"
+  echo "$NAME stopped."
+}
+
+do_status() {
+  local_pid=""
+  if is_running; then
+    echo "$NAME is running (PID $(cat "$PIDFILE"))."
+    echo "Log: $LOGFILE"
+    return 0
+  fi
+  if local_pid="$(find_existing_pid)"; then
+    echo "$NAME is running (PID $local_pid; not yet adopted by service)."
+    echo "Log: $LOGFILE"
+    return 0
+  fi
+  rm -f "$PIDFILE"
+  echo "$NAME is not running."
+  return 3
+}
+
+case "${1:-}" in
+  start) do_start ;;
+  stop) do_stop ;;
+  status) do_status ;;
+  restart|force-reload) do_stop; do_start ;;
+  *) echo "Usage: service comfyui {start|stop|restart|status}" >&2; exit 2 ;;
+esac
