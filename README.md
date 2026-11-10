@@ -48,7 +48,9 @@ SETUP_SCRIPT_URL=https://raw.githubusercontent.com/svrmsk000/minimax-h3-bf16-run
 - `SAGE_ATTENTION_RUNTIME_SMOKE=0` (skip the startup CUDA-kernel smoke test)
 - `MINIMAX_H3_ENABLE_SGLANG=1` (automatically start SGLang at Pod startup; default 0)
 - `SGLANG_VENV` (optional isolated SGLang virtualenv path; default `/opt/minimax-h3/sglang-venv`)
-- `SGLANG_DIT_RESIDENT_LAYERS` (default 4)
+- `SGLANG_DIT_RESIDENT_LAYERS` (one-GPU default 4)
+- `SGLANG_DIT_RESIDENT_LAYERS_2GPU` (two-GPU default 20)
+- `SGLANG_DIT_RESIDENT_LAYERS_4GPU` (four-GPU default 20)
 - `SGLANG_VIDEO_VAE_RESIDENT_LAYERS` (default 36)
 - `SGLANG_WARMUP_RESOLUTIONS` (default `1344x768`)
 - `SGLANG_WARMUP_NUM_FRAMES` (default 124)
@@ -65,7 +67,7 @@ Select the GPU topology explicitly inside the running Pod:
 service sgmax 1 start   # one GPU
 service sgmax 2 start   # two GPUs: tensor parallel 2, Ulysses 1
 service sgmax 4 start   # four GPUs: tensor parallel 2, Ulysses 2
-service sgmax stop      # stop the selected SGLang server and its worker processes
+service sgmax stop      # stop the active SGLang server and all its worker processes
 service sgmax status
 ```
 
