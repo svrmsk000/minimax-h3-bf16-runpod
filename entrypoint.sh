@@ -46,7 +46,7 @@ if [ "${MINIMAX_H3_ENABLE_SGLANG:-0}" = "1" ]; then
     echo "Use the SGLang-enabled image tag; startup does not install packages." >&2
     exit 1
   fi
-  service sgmax start
+  service sgmax 1 start
 else
   echo "SGLang auto-start disabled. Start it any time with: service sgmax start"
 fi
