@@ -14,6 +14,7 @@ NAME="sgmax"
 VENV="${SGLANG_VENV:-/opt/minimax-h3/sglang-venv}"
 LAUNCHER="/opt/minimax-h3/sglang/start_minimax_h3_ref2va.sh"
 PIDFILE="${SGLANG_PIDFILE:-/run/sgmax.pid}"
+MODEFILE="${SGLANG_MODEFILE:-/run/sgmax.gpus}"
 LOGFILE="${SGLANG_LOGFILE:-/workspace/runpod-slim/logs/sglang.log}"
 
 is_running() {
@@ -27,11 +28,13 @@ is_running() {
 }
 
 do_start() {
+  local gpu_count="$1"
   if is_running; then
-    echo "$NAME is already running (PID $(cat "$PIDFILE"))."
-    return 0
+    echo "$NAME is already running in $(cat "$MODEFILE" 2>/dev/null || echo unknown)-GPU mode (PID $(cat "$PIDFILE"))."
+    echo "Run 'service sgmax stop' before selecting another GPU mode."
+    return 1
   fi
-  rm -f "$PIDFILE"
+  rm -f "$PIDFILE" "$MODEFILE"
 
   if [ ! -x "$VENV/bin/sglang" ]; then
     echo "ERROR: SGLang is not installed at $VENV/bin/sglang." >&2
@@ -43,72 +46,85 @@ do_start() {
   fi
 
   mkdir -p "$(dirname "$LOGFILE")" "$(dirname "$PIDFILE")"
-  echo "Starting MiniMax H3 SGLang; log: $LOGFILE"
-  nohup "$LAUNCHER" >>"$LOGFILE" 2>&1 </dev/null &
+  echo "Starting MiniMax H3 SGLang with $gpu_count GPU(s); log: $LOGFILE"
+  nohup setsid "$LAUNCHER" "$gpu_count" >>"$LOGFILE" 2>&1 </dev/null &
   local pid=$!
   printf '%s\n' "$pid" > "$PIDFILE"
+  printf '%s\n' "$gpu_count" > "$MODEFILE"
 
   sleep 2
   if is_running; then
-    echo "$NAME started (PID $pid)."
+    echo "$NAME started in $gpu_count-GPU mode (PID $pid)."
     return 0
   fi
 
   echo "ERROR: $NAME exited during startup. Last log lines:" >&2
   tail -n 40 "$LOGFILE" >&2 || true
-  rm -f "$PIDFILE"
+  rm -f "$PIDFILE" "$MODEFILE"
   return 1
 }
 
 do_stop() {
   if ! is_running; then
-    rm -f "$PIDFILE"
+    rm -f "$PIDFILE" "$MODEFILE"
     echo "$NAME is not running."
     return 0
   fi
 
   local pid
   pid="$(cat "$PIDFILE")"
-  echo "Stopping $NAME (PID $pid)..."
-  kill -TERM "$pid" 2>/dev/null || true
+  echo "Stopping $NAME and its worker processes (PID $pid)..."
+  kill -TERM -- "-$pid" 2>/dev/null || kill -TERM "$pid" 2>/dev/null || true
 
   local i
   for i in $(seq 1 30); do
     if ! is_running; then
-      rm -f "$PIDFILE"
+      rm -f "$PIDFILE" "$MODEFILE"
       echo "$NAME stopped."
       return 0
     fi
     sleep 1
   done
 
-  echo "$NAME did not stop gracefully; sending SIGKILL." >&2
-  kill -KILL "$pid" 2>/dev/null || true
-  rm -f "$PIDFILE"
+  echo "$NAME did not stop gracefully; sending SIGKILL to its process group." >&2
+  kill -KILL -- "-$pid" 2>/dev/null || kill -KILL "$pid" 2>/dev/null || true
+  rm -f "$PIDFILE" "$MODEFILE"
   echo "$NAME stopped."
 }
 
 do_status() {
   if is_running; then
-    echo "$NAME is running (PID $(cat "$PIDFILE"))."
+    echo "$NAME is running in $(cat "$MODEFILE" 2>/dev/null || echo unknown)-GPU mode (PID $(cat "$PIDFILE"))."
     echo "Log: $LOGFILE"
     return 0
   fi
-  rm -f "$PIDFILE"
+  rm -f "$PIDFILE" "$MODEFILE"
   echo "$NAME is not running."
   return 3
 }
 
+ACTION=""
+GPU_COUNT="1"
 case "${1:-}" in
-  start)   do_start ;;
+  1|2|4)
+    GPU_COUNT="$1"
+    ACTION="${2:-}"
+    ;;
+  *)
+    ACTION="${1:-}"
+    ;;
+esac
+
+case "$ACTION" in
+  start)   do_start "$GPU_COUNT" ;;
   stop)    do_stop ;;
   status)  do_status ;;
   restart|force-reload)
     do_stop
-    do_start
+    do_start "$GPU_COUNT"
     ;;
   *)
-    echo "Usage: service sgmax {start|stop|restart|status}" >&2
+    echo "Usage: service sgmax [1|2|4] {start|stop|restart|status}" >&2
     exit 2
     ;;
 esac
