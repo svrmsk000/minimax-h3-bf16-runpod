@@ -8,11 +8,13 @@ trap 'rm -rf "$tmp"' EXIT
 comfy="$tmp/ComfyUI"
 venv="$tmp/sglang-venv"
 mkdir -p "$comfy/models/diffusion_models/h3" "$comfy/models/text_encoders" "$comfy/models/vae" "$venv/bin"
-touch \
+for model_file in \
   "$comfy/models/diffusion_models/h3/minimax_h3_ref2va_bf16.safetensors" \
   "$comfy/models/text_encoders/qwen3vl_32b_minimax_h3_int8_convrot.safetensors" \
   "$comfy/models/vae/minimax_h3_video_vae_fp16.safetensors" \
-  "$comfy/models/vae/minimax_h3_audio_vae_fp32.safetensors"
+  "$comfy/models/vae/minimax_h3_audio_vae_fp32.safetensors"; do
+  printf 'mock model weights' > "$model_file"
+done
 
 cat > "$venv/bin/sglang" <<'FAKE_SGLANG'
 #!/usr/bin/env bash
