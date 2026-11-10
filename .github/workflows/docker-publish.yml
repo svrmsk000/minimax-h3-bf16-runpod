@@ -3,7 +3,7 @@ name: Build and publish MiniMax H3 CUDA 13 images
 on:
   workflow_dispatch:
   push:
-    branches: [ "main", "rtx5090-comfyui-0.42.1", "sglang-rtx5090-comfyui-0.42.1" ]
+    branches: [ "main", "rtx5090-comfyui-0.42.1", "sglang-rtx5090-comfyui-0.42.1", "feat/comfyui-extra-model-setup-scripts" ]
     tags: [ "v*" ]
 
 permissions:
