@@ -129,6 +129,7 @@ RUN apt-get update \
     && command -v service
 
 COPY sglang/ /opt/minimax-h3/sglang/
+COPY comfyui/comfyui /opt/minimax-h3/comfyui-service
 COPY minimax_h3_download_setup.sh /opt/minimax-h3/minimax_h3_download_setup.sh
 COPY driver_preflight.sh /driver_preflight.sh
 COPY entrypoint.sh /entrypoint.sh
@@ -138,13 +139,16 @@ RUN bash -n /opt/minimax-h3/minimax_h3_download_setup.sh \
     /opt/minimax-h3/sglang/install_sglang.sh \
     /opt/minimax-h3/sglang/start_minimax_h3_ref2va.sh \
     /opt/minimax-h3/sglang/sgmax \
+    /opt/minimax-h3/comfyui-service \
     /driver_preflight.sh /entrypoint.sh /sage_bootstrap.sh \
     && chmod +x /opt/minimax-h3/minimax_h3_download_setup.sh \
       /opt/minimax-h3/sglang/install_sglang.sh \
       /opt/minimax-h3/sglang/start_minimax_h3_ref2va.sh \
       /opt/minimax-h3/sglang/sgmax \
+      /opt/minimax-h3/comfyui-service \
       /driver_preflight.sh /entrypoint.sh /sage_bootstrap.sh \
-    && ln -sf /opt/minimax-h3/sglang/sgmax /etc/init.d/sgmax
+    && ln -sf /opt/minimax-h3/sglang/sgmax /etc/init.d/sgmax \
+    && ln -sf /opt/minimax-h3/comfyui-service /etc/init.d/comfyui
 
 # Bake SGLang into its own Python environment at image-build time.
 # This deliberately leaves the RunPod/ComfyUI Python and PyTorch untouched.
