@@ -17,6 +17,7 @@ export PYTHON_TEST_BIN="$python_bin"
 bash -n "$repo_root"/*.sh "$repo_root"/tests/*.sh
 bash "$repo_root/tests/driver_preflight_test.sh"
 bash "$repo_root/tests/sage_matrix_test.sh"
+bash "$repo_root/tests/sglang_profiles_test.sh"
 bash "$repo_root/tests/safetensors_validator_test.sh"
 bash "$repo_root/tests/resumable_download_test.sh"
 bash "$repo_root/tests/download_priority_test.sh"
