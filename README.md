@@ -55,6 +55,21 @@ SETUP_SCRIPT_URL=https://raw.githubusercontent.com/svrmsk000/minimax-h3-bf16-run
 - `SGLANG_WARMUP_RESOLUTIONS` (default `1344x768`)
 - `SGLANG_WARMUP_NUM_FRAMES` (default 124)
 
+## ComfyUI service management
+
+ComfyUI can be controlled independently from the container shell:
+
+```bash
+service comfyui start
+service comfyui stop
+service comfyui restart
+service comfyui status
+```
+
+The service launches `python3 main.py --listen 0.0.0.0 --port 8188 --enable-cors-header --preview-method none --high-ram --enable-manager` from `/workspace/runpod-slim/ComfyUI`. Its log is `/tmp/comfyui.log`. If ComfyUI is already running from the RunPod startup script, `service comfyui start` adopts the existing process instead of launching a duplicate.
+
+ComfyUI-Manager is cloned from `https://github.com/Comfy-Org/ComfyUI-Manager.git` into the image's baked custom-node directory and copied into `ComfyUI/custom_nodes/comfyui-manager` during cold-start setup. An existing user installation is preserved.
+
 ## SGLang Diffusion (RTX 5090)
 
 The dedicated branch `sglang-rtx5090-comfyui-0.42.1` adds an optional SGLang Diffusion Ref2VA server without replacing ComfyUI 0.42.1 or its Python environment.
