@@ -48,7 +48,7 @@ if [ "${MINIMAX_H3_ENABLE_SGLANG:-0}" = "1" ]; then
   fi
   service sgmax 1 start
 else
-  echo "SGLang auto-start disabled. Start it any time with: service sgmax start"
+  echo "SGLang auto-start disabled. Start it any time with: service sgmax 1 start (or choose 2/4 for a multi-GPU profile)"
 fi
 
 echo "Starting original RunPod ComfyUI services..."
