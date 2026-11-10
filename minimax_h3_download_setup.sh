@@ -262,6 +262,24 @@ ensure_comfyui() {
     "$COMFY/input"
 }
 
+
+ensure_comfyui_manager() {
+  local target="$COMFY/custom_nodes/comfyui-manager"
+  local baked="$COMFY_BAKED/custom_nodes/comfyui-manager"
+  if [ -d "$target" ]; then
+    echo "Ready NODE      ComfyUI-Manager"
+    return 0
+  fi
+  if [ ! -d "$baked" ]; then
+    echo "FATAL: Baked ComfyUI-Manager repository is missing: $baked" >&2
+    return 1
+  fi
+  echo "Installing baked ComfyUI-Manager into $target"
+  cp -a "$baked" "$target"
+  test -d "$target"
+  echo "Installed NODE  ComfyUI-Manager"
+}
+
 ensure_pixaroma_h3() {
   local target="$COMFY/custom_nodes/ComfyUI-Pixaroma"
   local staging="${target}.minimax-h3-part"
@@ -1013,6 +1031,7 @@ main() {
 
   preflight_cuda
   ensure_comfyui
+  ensure_comfyui_manager
   ensure_pixaroma_h3
   ensure_seed_hunter_nodes
   python -m py_compile \
