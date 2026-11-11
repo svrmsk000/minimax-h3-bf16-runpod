@@ -31,7 +31,7 @@ test -s "$setup_script"
 bash -n "$setup_script"
 chmod +x "$setup_script"
 echo "Running MiniMax H3 cold-start setup..."
-bash "$setup_script"
+MINIMAX_H3_SKIP_MODEL_DOWNLOADS=1 bash "$setup_script"
 
 echo "Running SageAttention bootstrap..."
 # Source the bootstrap so its selected Sage 2/Sage 3 backend environment is
