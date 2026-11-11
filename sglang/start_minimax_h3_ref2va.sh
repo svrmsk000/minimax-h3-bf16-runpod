@@ -38,6 +38,13 @@ esac
 export PYTORCH_CUDA_ALLOC_CONF="${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:True}"
 export CUDA_HOME="${CUDA_HOME:-/usr/local/cuda}"
 export HF_HOME="${HF_HOME:-/workspace/runpod-slim/huggingface}"
+# huggingface_hub reads HF_TOKEN from the environment; SGLang has no token CLI flag.
+if [ -n "${HF_TOKEN:-}" ]; then
+  export HF_TOKEN
+  echo "Hugging Face authentication: HF_TOKEN is configured."
+else
+  echo "WARNING: HF_TOKEN is not set; Hugging Face downloads will be unauthenticated." >&2
+fi
 mkdir -p "$HF_HOME"
 
 echo "Starting MiniMax H3 Ref2VA with SGLang on $GPU_COUNT GPU(s)."
