@@ -266,6 +266,9 @@ ensure_comfyui() {
 ensure_comfyui_manager() {
   local target="$COMFY/custom_nodes/comfyui-manager"
   local baked="$COMFY_BAKED/custom_nodes/comfyui-manager"
+
+  cd /workspace/runpod-slim/ComfyUI
+  python3 -m pip install -U --pre comfyui-manager
   if [ -d "$target" ]; then
     echo "Ready NODE      ComfyUI-Manager"
     return 0
