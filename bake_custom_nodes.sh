@@ -66,7 +66,7 @@ install_rife_model() {
 mkdir -p "$CUSTOM_NODES"
 : > "$REQS"
 
-# ComfyUI-Manager is installed as a Python package during cold-start setup.
+# ComfyUI-Manager is installed in the Docker image; this script only bakes custom nodes.
 clone_pinned_node \
   "ComfyUI-MiniMaxH3-SGLang" \
   "https://github.com/sterraMind/ComfyUI-MiniMaxH3-SGLang.git" \

@@ -242,15 +242,12 @@ ensure_comfyui() {
     echo "WARNING: H3 core files exist without the managed commit marker; continuing with compatibility checks."
   fi
 
-  if [ ! -d "$VENV" ]; then
-    echo "Creating isolated ComfyUI CUDA 13 venv..."
-    cd "$COMFY"
-    python3.12 -m venv --system-site-packages "$VENV"
-    source "$VENV/bin/activate"
-    python -m ensurepip
-  else
-    source "$VENV/bin/activate"
+  if [ ! -x "$VENV/bin/python" ]; then
+    echo "FATAL: ComfyUI CUDA 13 Python environment is missing: $VENV/bin/python" >&2
+    echo "The environment must be preinstalled in the Docker image; startup does not create or install it." >&2
+    return 1
   fi
+  source "$VENV/bin/activate"
 
   mkdir -p \
     "$COMFY/custom_nodes" \
