@@ -31,12 +31,12 @@ if [ ! -x "$VENV/bin/python" ]; then
   uv venv --python "$PYTHON_BIN" "$VENV"
 fi
 
-echo "Installing SGLang build/runtime prerequisites into its isolated environment."
-uv pip install --python "$VENV/bin/python" -U ninja comfy-kitchen
-
 echo "Installing SGLang Diffusion into an isolated environment."
 echo "ComfyUI's Python environment and PyTorch installation will not be modified."
 uv pip install --python "$VENV/bin/python" --prerelease=allow "$INSTALL_SPEC"
+
+echo "Installing Ninja and Comfy-Kitchen runtime/build prerequisites."
+uv pip install --python "$VENV/bin/python" -U ninja comfy-kitchen
 
 "$VENV/bin/python" - <<'PY'
 import importlib.metadata
