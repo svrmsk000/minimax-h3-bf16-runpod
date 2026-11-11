@@ -1046,6 +1046,17 @@ main() {
   install_bundle
   validate_installed_workflows
 
+  if [ "${MINIMAX_H3_SKIP_MODEL_DOWNLOADS:-0}" = "1" ]; then
+    patch_start_credentials
+    write_status "models-manual" \
+      "ComfyUI setup completed. MiniMax H3 model downloads are disabled during startup; run download_minimax_h3_models.sh manually when needed."
+    setup_complete=1
+    trap - EXIT
+    echo "MiniMax H3 automatic model downloads are disabled."
+    echo "Run download_minimax_h3_models.sh manually to download the model files."
+    return 0
+  fi
+
   init_model_manifest
   resolve_dynamic_model_sizes
   select_model_priority
