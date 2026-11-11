@@ -262,16 +262,12 @@ ensure_comfyui() {
 
 
 ensure_comfyui_manager() {
-  local python_bin="$VENV/bin/python"
-  test -x "$python_bin" || {
-    echo "FATAL: ComfyUI Python environment is missing: $python_bin" >&2
+  local manager_dir="$COMFY/custom_nodes/comfyui-manager"
+  test -f "$manager_dir/__init__.py" || {
+    echo "FATAL: Baked ComfyUI-Manager custom node is missing: $manager_dir" >&2
     return 1
   }
-  "$python_bin" -c "from importlib.metadata import version; print('Baked ComfyUI-Manager:', version('comfyui-manager'))" || {
-    echo "FATAL: ComfyUI-Manager is missing from the image. Rebuild the image; startup does not install packages." >&2
-    return 1
-  }
-  echo "Ready PACKAGE ComfyUI-Manager (preinstalled in image)"
+  echo "Ready custom node ComfyUI-Manager (baked into image)"
 }
 
 ensure_sglang_h3_node() {

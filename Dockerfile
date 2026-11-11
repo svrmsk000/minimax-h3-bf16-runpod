@@ -73,6 +73,7 @@ ARG SAGE_ATTENTION_VERSION=2.2.0
 ARG COMFY_SAGE_ATTENTION3=0
 ARG MINIMAX_H3_GPU_FAMILY=ada
 ARG COMFYUI_COMMIT=63be2f9b82ad0dac88a7ceaa28a9cf3154125a18
+ARG COMFYUI_MANAGER_COMMIT=15e49ea544a4b20627c2eec01341843e8c4b6d49
 ARG PIXAROMA_COMMIT=433bbedc7f43d717fcb9e8e9aa9cbd26b0439226
 
 ENV COMFY_VENV=/workspace/runpod-slim/ComfyUI/.venv-cu130 \
@@ -90,10 +91,20 @@ ENV COMFY_VENV=/workspace/runpod-slim/ComfyUI/.venv-cu130 \
 COPY --from=sage-builder /tmp/sage-wheels /tmp/sage-wheels
 RUN python3 -m pip uninstall -y sageattention sageattn3 >/dev/null 2>&1 || true
 
-# Install ComfyUI-Manager into the image during build; cold start only verifies it.
-RUN test -x "$COMFY_VENV/bin/python" \
-    && "$COMFY_VENV/bin/python" -m pip install --no-cache-dir --pre comfyui-manager \
-    && "$COMFY_VENV/bin/python" -c "from importlib.metadata import version; print('Baked ComfyUI-Manager:', version('comfyui-manager'))"
+# Restore ComfyUI-Manager as a custom node after the pinned ComfyUI tree
+# replaces the base image's baked tree. Its Python dependencies are already
+# provided by the RunPod ComfyUI base image; no runtime venv exists at build time.
+RUN set -eux; \
+    git init /tmp/ComfyUI-Manager; \
+    git -C /tmp/ComfyUI-Manager remote add origin https://github.com/Comfy-Org/ComfyUI-Manager.git; \
+    git -C /tmp/ComfyUI-Manager fetch --depth 1 origin "$COMFYUI_MANAGER_COMMIT"; \
+    git -C /tmp/ComfyUI-Manager checkout --detach FETCH_HEAD; \
+    test "$(git -C /tmp/ComfyUI-Manager rev-parse HEAD)" = "$COMFYUI_MANAGER_COMMIT"; \
+    mkdir -p /opt/comfyui-baked/custom_nodes/comfyui-manager; \
+    cp -a /tmp/ComfyUI-Manager/. /opt/comfyui-baked/custom_nodes/comfyui-manager/; \
+    rm -rf /opt/comfyui-baked/custom_nodes/comfyui-manager/.git /tmp/ComfyUI-Manager; \
+    test -f /opt/comfyui-baked/custom_nodes/comfyui-manager/__init__.py; \
+    python3 -c 'from importlib.metadata import version; required = ["GitPython", "PyGithub", "matrix-nio", "transformers", "huggingface-hub", "typer", "rich", "typing-extensions", "toml", "chardet", "packaging", "nh3"]; missing = [name for name in required if not any(d.metadata["Name"].lower() == name.lower() for d in __import__("importlib.metadata", fromlist=["distributions"]).distributions())]; assert not missing, "Missing baked ComfyUI-Manager dependencies: " + ", ".join(missing); print("Baked ComfyUI-Manager source and dependencies verified")'
 
 RUN python3 -m pip install --no-deps /tmp/sage-wheels/*.whl \
     && SAGE_ATTENTION_MAJOR="$SAGE_ATTENTION_MAJOR" \
