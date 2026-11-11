@@ -106,7 +106,7 @@ RUN set -eux; \
     cp -a /tmp/ComfyUI-Manager/. /opt/comfyui-baked/custom_nodes/comfyui-manager/; \
     rm -rf /opt/comfyui-baked/custom_nodes/comfyui-manager/.git /tmp/ComfyUI-Manager; \
     test -f /opt/comfyui-baked/custom_nodes/comfyui-manager/__init__.py; \
-    python3 -c 'from importlib.metadata import version; required = ["GitPython", "PyGithub", "matrix-nio", "transformers", "huggingface-hub", "typer", "rich", "typing-extensions", "toml", "chardet", "packaging", "nh3"]; missing = [name for name in required if not any(d.metadata["Name"].lower() == name.lower() for d in __import__("importlib.metadata", fromlist=["distributions"]).distributions())]; assert not missing, "Missing baked ComfyUI-Manager dependencies: " + ", ".join(missing); print("Baked ComfyUI-Manager source and dependencies verified")'
+    python3 -c 'from importlib.metadata import version; required = ["GitPython", "PyGithub", "matrix-nio", "transformers", "huggingface-hub", "typer", "rich", "typing-extensions", "toml", "chardet", "packaging", "nh3"]; missing = [name for name in required if not any(d.metadata["Name"].lower().replace("_", "-").replace(".", "-") == name.lower().replace("_", "-").replace(".", "-") for d in __import__("importlib.metadata", fromlist=["distributions"]).distributions())]; assert not missing, "Missing baked ComfyUI-Manager dependencies: " + ", ".join(missing); print("Baked ComfyUI-Manager source and dependencies verified")'
 
 RUN python3 -m pip install --no-deps /tmp/sage-wheels/*.whl \
     && SAGE_ATTENTION_MAJOR="$SAGE_ATTENTION_MAJOR" \
