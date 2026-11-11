@@ -5,6 +5,7 @@ COMFY_BAKED="/opt/comfyui-baked"
 CUSTOM_NODES="$COMFY_BAKED/custom_nodes"
 CONSTRAINTS="/opt/comfyui-runtime-constraints.txt"
 PIXAROMA_COMMIT="${PIXAROMA_COMMIT:-433bbedc7f43d717fcb9e8e9aa9cbd26b0439226}"
+H3_SGLANG_NODE_COMMIT="${H3_SGLANG_NODE_COMMIT:-8ff6e1f3cbecf2944229905ea0a11d949d2104ba}"
 GPU_FAMILY="${MINIMAX_H3_GPU_FAMILY:-ada}"
 NODE_LOCK="${SEED_HUNTER_NODE_LOCK:-/opt/minimax-h3/seed-hunter-node-lock.tsv}"
 REQS="/tmp/minimax-h3-custom-node-requirements.txt"
@@ -65,12 +66,13 @@ install_rife_model() {
 mkdir -p "$CUSTOM_NODES"
 : > "$REQS"
 
-# Install ComfyUI Manager into the baked custom-node tree.
-if [ ! -d "$CUSTOM_NODES/comfyui-manager" ]; then
-  echo "Baking ComfyUI Manager from Comfy-Org."
-  git clone --depth 1 https://github.com/Comfy-Org/ComfyUI-Manager.git "$CUSTOM_NODES/comfyui-manager"
-  rm -rf "$CUSTOM_NODES/comfyui-manager/.git"
-fi
+# ComfyUI-Manager is installed as a Python package during cold-start setup.
+clone_pinned_node \
+  "ComfyUI-MiniMaxH3-SGLang" \
+  "https://github.com/sterraMind/ComfyUI-MiniMaxH3-SGLang.git" \
+  "$H3_SGLANG_NODE_COMMIT"
+test -f "$CUSTOM_NODES/ComfyUI-MiniMaxH3-SGLang/__init__.py"
+grep -q 'MiniMaxH3Ref2VA' "$CUSTOM_NODES/ComfyUI-MiniMaxH3-SGLang/nodes.py"
 
 clone_pinned_node \
   "ComfyUI-Pixaroma" \

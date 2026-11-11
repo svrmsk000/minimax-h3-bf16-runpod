@@ -51,9 +51,9 @@ SETUP_SCRIPT_URL=https://raw.githubusercontent.com/svrmsk000/minimax-h3-bf16-run
 - `SGLANG_DIT_RESIDENT_LAYERS` (one-GPU default 4)
 - `SGLANG_DIT_RESIDENT_LAYERS_2GPU` (two-GPU default 20)
 - `SGLANG_DIT_RESIDENT_LAYERS_4GPU` (four-GPU default 20)
-- `SGLANG_VIDEO_VAE_RESIDENT_LAYERS` (default 36)
+- `SGLANG_VIDEO_VAE_RESIDENT_LAYERS` (default 24 on 1 GPU; 36 on 2/4 GPUs; optional common override; per-profile overrides `SGLANG_VIDEO_VAE_RESIDENT_LAYERS_1GPU`, `_2GPU`, `_4GPU`)
 - `SGLANG_WARMUP_RESOLUTIONS` (default `1344x768`)
-- `SGLANG_WARMUP_NUM_FRAMES` (default 124)
+- `SGLANG_WARMUP_NUM_FRAMES` (default 24)
 
 ## ComfyUI service management
 
@@ -68,7 +68,7 @@ service comfyui status
 
 The service launches `python3 main.py --listen 0.0.0.0 --port 8188 --enable-cors-header --preview-method none --high-ram --enable-manager` from `/workspace/runpod-slim/ComfyUI`. Its log is `/tmp/comfyui.log`. If ComfyUI is already running from the RunPod startup script, `service comfyui start` adopts the existing process instead of launching a duplicate.
 
-ComfyUI-Manager is cloned from `https://github.com/Comfy-Org/ComfyUI-Manager.git` into the image's baked custom-node directory and copied into `ComfyUI/custom_nodes/comfyui-manager` during cold-start setup. An existing user installation is preserved.
+ComfyUI-Manager V4 is installed during cold-start setup with `python3 -m pip install -U --pre comfyui-manager` in the active ComfyUI Python environment. It is installed as a Python package, not copied into `custom_nodes`.
 
 ## SGLang Diffusion (RTX 5090)
 
@@ -90,26 +90,21 @@ The legacy `service sgmax start` form remains an alias for the one-GPU profile. 
 
 With `MINIMAX_H3_ENABLE_SGLANG=1`, the service starts automatically in the one-GPU profile after model setup completes. With it unset or set to `0`, ComfyUI starts alone, and you can select a profile manually at any time. Stopping SGLang does not stop ComfyUI or the Pod. The service log is at `/workspace/runpod-slim/logs/sglang.log`; the API listens on port `30010` for every profile.
 
-All profiles use Ref2VA, memory-oriented layerwise offload, disabled Torch compile, 1344x768 warmup, 124 frames, and the existing local ComfyUI model files. The one-GPU profile uses four resident DiT layers. The two- and four-GPU profiles use 20 resident DiT layers and one prefetch layer; the four-GPU profile additionally enables Ulysses degree 2. The multi-GPU profiles use tensor parallel size 2 and encoder parallel auto.
+All profiles use Ref2VA, memory-oriented layerwise offload, disabled Torch compile, 1344x768 warmup, and 24 warmup frames. The one-GPU profile uses four resident DiT layers and 24 resident video-VAE layers. The two- and four-GPU profiles use 20 resident DiT layers, 36 resident video-VAE layers, and one prefetch layer; the four-GPU profile additionally enables Ulysses degree 2. The multi-GPU profiles use tensor parallel size 2 and encoder parallel auto.
 
-ComfyUI remains available on port `8188` and its Python/PyTorch environment is not modified. SGLang uses the official model repository ID `MiniMaxAI/MiniMax-H3` for model configuration and resolves the already-downloaded local component weights through explicit overrides:
+ComfyUI remains available on port `8188`. SGLang uses the official Hugging Face model repository ID `MiniMaxAI/MiniMax-H3` through `--model-path`; the launcher does not pass explicit paths to component weights stored in the ComfyUI workspace.
 
-- Ref2VA BF16 transformer: `models/diffusion_models/h3/minimax_h3_ref2va_bf16.safetensors`
-- Qwen3-VL INT8 ConvRot text encoder: `models/text_encoders/qwen3vl_32b_minimax_h3_int8_convrot.safetensors`
-- FP16 video VAE: `models/vae/minimax_h3_video_vae_fp16.safetensors`
-- FP32 audio VAE: `models/vae/minimax_h3_audio_vae_fp32.safetensors`
+SGLang resolves the Ref2VA components from the model repository. Hugging Face may download model assets into its cache; set `HF_TOKEN` if access or rate limits require it.
 
-This avoids downloading another copy of the large model weights. Hugging Face may still be used for small model configuration/tokenizer metadata; set `HF_TOKEN` if access or rate limits require it.
+The SGLang server supports one-, two-, and four-GPU Ref2VA profiles. All profiles use memory-oriented layerwise offload, disabled Torch compile, 1344x768 warmup, 24 frames, and port 30010. The one-GPU profile uses four resident DiT layers and 24 resident video-VAE layers; the two- and four-GPU profiles use 20 resident DiT layers and 36 resident video-VAE layers, one prefetch layer, tensor parallel size 2, and encoder parallel auto. The four-GPU profile uses Ulysses degree 2. Select a profile with the service commands above.
 
-The SGLang server supports one-, two-, and four-GPU Ref2VA profiles. All profiles use memory-oriented layerwise offload, 36 resident video-VAE layers, disabled Torch compile, 1344x768 warmup, 124 frames, and port 30010. The one-GPU profile uses four resident DiT layers; the two- and four-GPU profiles use 20 resident DiT layers, one prefetch layer, tensor parallel size 2, and encoder parallel auto. The four-GPU profile uses Ulysses degree 2. Select a profile with the service commands above.
-
-**Do not run a ComfyUI H3 generation and an SGLang generation at the same time on the same RTX 5090.** Both services are exposed for convenience, but they share one GPU. The SGLang launcher checks that all four local model files exist before starting.
+**Do not run a ComfyUI H3 generation and an SGLang generation at the same time on the same RTX 5090.** Both services are exposed for convenience, but they share one GPU.
 
 ## Preserved stack
 
 - RunPod CUDA 13.0 base image and PyTorch CUDA 13.0
 - ComfyUI v0.42.1 with native MiniMax H3 support on the RTX 5090 branch; legacy `main` remains on v0.34.0
-- ComfyUI-Pixaroma H3 audio-sync nodes
+- ComfyUI-Pixaroma H3 audio-sync nodes and the pinned `ComfyUI-MiniMaxH3-SGLang` bridge node
 - SageAttention 2.2.0 for Ada and SageAttention 3 for Blackwell
 - Eleven pinned Seed Hunter custom-node repositories
 - RIFE v4.26 interpolation model

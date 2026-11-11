@@ -25,10 +25,34 @@ printf '%s\n' "2222222222222222222222222222222222222222" \
   > "$COMFY_BAKED/custom_nodes/ComfyUI-VFI/.minimax-h3-managed-commit"
 mkdir -p "$COMFY_BAKED/custom_nodes/ComfyUI-VFI/rife/train_log"
 truncate -s 24636301 "$COMFY_BAKED/custom_nodes/ComfyUI-VFI/rife/train_log/flownet.pkl"
+mkdir -p "$COMFY_BAKED/custom_nodes/ComfyUI-MiniMaxH3-SGLang"
+printf '%s\n' "mock node" > "$COMFY_BAKED/custom_nodes/ComfyUI-MiniMaxH3-SGLang/__init__.py"
+printf '%s\n' "mock node source" > "$COMFY_BAKED/custom_nodes/ComfyUI-MiniMaxH3-SGLang/nodes.py"
+printf '%s\n' "8ff6e1f3cbecf2944229905ea0a11d949d2104ba" \
+  > "$COMFY_BAKED/custom_nodes/ComfyUI-MiniMaxH3-SGLang/.minimax-h3-managed-commit"
 
 mkdir -p "$COMFY/custom_nodes/ExampleNode"
 printf 'user copy\n' > "$COMFY/custom_nodes/ExampleNode/custom.txt"
 GPU_FAMILY=ada
+ensure_sglang_h3_node >/dev/null
+[ -f "$COMFY/custom_nodes/ComfyUI-MiniMaxH3-SGLang/nodes.py" ]
+grep -q '^8ff6e1f3cbecf2944229905ea0a11d949d2104ba
+grep -q '^1111111111111111111111111111111111111111$' \
+  "$COMFY/custom_nodes/ExampleNode/.minimax-h3-managed-commit"
+[ -f "$COMFY/custom_nodes/ComfyUI-VFI/rife/train_log/flownet.pkl" ]
+find "$COMFY/custom_nodes" -maxdepth 1 -type d \
+  -name 'ExampleNode.pre-minimax-h3-*' | grep -q .
+
+COMFY="$tmp/ComfyUI-Ampere"
+mkdir -p "$COMFY/custom_nodes"
+GPU_FAMILY=ampere
+ensure_seed_hunter_nodes >/dev/null
+[ ! -e "$COMFY/custom_nodes/ExampleNode" ]
+
+echo "Custom-node synchronization tests passed."
+ \
+  "$COMFY/custom_nodes/ComfyUI-MiniMaxH3-SGLang/.minimax-h3-managed-commit"
+ensure_sglang_h3_node >/dev/null
 ensure_seed_hunter_nodes >/dev/null
 grep -q '^1111111111111111111111111111111111111111$' \
   "$COMFY/custom_nodes/ExampleNode/.minimax-h3-managed-commit"

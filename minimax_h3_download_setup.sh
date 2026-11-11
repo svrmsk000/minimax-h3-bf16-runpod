@@ -13,6 +13,7 @@ REF2VA_BF16_REVISION="3f57e8291d2ef846f9a074b1b76d2767db434abe"
 REF2VA_TURBO_LORA_REVISION="0fea91688aefb62d4eb94d5952f277f46c298284"
 EXPECTED_CORE_COMMIT="${COMFYUI_H3_COMMIT:-63be2f9b82ad0dac88a7ceaa28a9cf3154125a18}"
 PIXAROMA_COMMIT="${PIXAROMA_H3_COMMIT:-433bbedc7f43d717fcb9e8e9aa9cbd26b0439226}"
+H3_SGLANG_NODE_COMMIT="${MINIMAX_H3_SGLANG_NODE_COMMIT:-8ff6e1f3cbecf2944229905ea0a11d949d2104ba}"
 GPU_FAMILY="${MINIMAX_H3_GPU_FAMILY:-ada}"
 NODE_LOCK="${MINIMAX_H3_NODE_LOCK:-/opt/minimax-h3/seed-hunter-node-lock.tsv}"
 CURL_BIN="${CURL_BIN:-curl}"
@@ -264,23 +265,42 @@ ensure_comfyui() {
 
 
 ensure_comfyui_manager() {
-  local target="$COMFY/custom_nodes/comfyui-manager"
-  local baked="$COMFY_BAKED/custom_nodes/comfyui-manager"
-
-  cd /workspace/runpod-slim/ComfyUI
+  cd "$COMFY"
+  echo "Installing ComfyUI-Manager V4 from PyPI into the active ComfyUI environment."
   python3 -m pip install -U --pre comfyui-manager
-  if [ -d "$target" ]; then
-    echo "Ready NODE      ComfyUI-Manager"
+  python3 -c "from importlib.metadata import version; print('ComfyUI-Manager:', version('comfyui-manager'))"
+  echo "Installed PACKAGE ComfyUI-Manager"
+}
+
+ensure_sglang_h3_node() {
+  local folder="ComfyUI-MiniMaxH3-SGLang"
+  local target="$COMFY/custom_nodes/$folder"
+  local baked="$COMFY_BAKED/custom_nodes/$folder"
+  local marker="$target/.minimax-h3-managed-commit"
+  local staging="$target.minimax-h3-part"
+  local backup
+
+  test -f "$baked/__init__.py"
+  test "$(tr -d '[:space:]' < "$baked/.minimax-h3-managed-commit")" = "$H3_SGLANG_NODE_COMMIT"
+
+  if [ -f "$marker" ] \
+    && [ "$(tr -d '[:space:]' < "$marker")" = "$H3_SGLANG_NODE_COMMIT" ]; then
+    echo "Ready NODE      $folder ($H3_SGLANG_NODE_COMMIT)"
     return 0
   fi
-  if [ ! -d "$baked" ]; then
-    echo "FATAL: Baked ComfyUI-Manager repository is missing: $baked" >&2
-    return 1
+
+  if [ -e "$target" ]; then
+    backup="$target.pre-minimax-h3-$(date +%Y%m%dT%H%M%S)"
+    mv "$target" "$backup"
+    echo "Preserved unmanaged or incompatible node at: $backup"
   fi
-  echo "Installing baked ComfyUI-Manager into $target"
-  cp -a "$baked" "$target"
-  test -d "$target"
-  echo "Installed NODE  ComfyUI-Manager"
+
+  rm -rf "$staging"
+  cp -a "$baked" "$staging"
+  printf '%s\n' "$H3_SGLANG_NODE_COMMIT" > "$staging/.minimax-h3-managed-commit"
+  mv "$staging" "$target"
+  test -f "$target/nodes.py"
+  echo "Installed NODE  $folder ($H3_SGLANG_NODE_COMMIT)"
 }
 
 ensure_pixaroma_h3() {
@@ -1035,12 +1055,14 @@ main() {
   preflight_cuda
   ensure_comfyui
   ensure_comfyui_manager
+  ensure_sglang_h3_node
   ensure_pixaroma_h3
   ensure_seed_hunter_nodes
   python -m py_compile \
     "$COMFY/comfy_extras/nodes_minimax_h3.py" \
     "$COMFY/comfy/text_encoders/minimax.py" \
-    "$COMFY/custom_nodes/ComfyUI-Pixaroma/nodes/node_h3_audio_sync.py"
+    "$COMFY/custom_nodes/ComfyUI-Pixaroma/nodes/node_h3_audio_sync.py" \
+    "$COMFY/custom_nodes/ComfyUI-MiniMaxH3-SGLang/nodes.py"
 
   resolve_script_base_url
   install_bundle
