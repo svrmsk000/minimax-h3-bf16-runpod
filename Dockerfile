@@ -92,8 +92,10 @@ COPY --from=sage-builder /tmp/sage-wheels /tmp/sage-wheels
 RUN python3 -m pip uninstall -y sageattention sageattn3 >/dev/null 2>&1 || true
 
 # Restore ComfyUI-Manager as a custom node after the pinned ComfyUI tree
-# replaces the base image's baked tree. Its Python dependencies are already
-# provided by the RunPod ComfyUI base image; no runtime venv exists at build time.
+# replaces the base image's baked tree. Install its missing Python dependencies
+# at image-build time; no package installation is performed when the Pod starts.
+RUN python3 -m pip install --no-cache-dir huggingface-hub typing-extensions nh3
+
 RUN set -eux; \
     git init /tmp/ComfyUI-Manager; \
     git -C /tmp/ComfyUI-Manager remote add origin https://github.com/Comfy-Org/ComfyUI-Manager.git; \
