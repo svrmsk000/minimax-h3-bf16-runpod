@@ -89,6 +89,12 @@ ENV COMFY_VENV=/workspace/runpod-slim/ComfyUI/.venv-cu130 \
 
 COPY --from=sage-builder /tmp/sage-wheels /tmp/sage-wheels
 RUN python3 -m pip uninstall -y sageattention sageattn3 >/dev/null 2>&1 || true
+
+# Install ComfyUI-Manager into the image during build; cold start only verifies it.
+RUN test -x "$COMFY_VENV/bin/python" \
+    && "$COMFY_VENV/bin/python" -m pip install --no-cache-dir --pre comfyui-manager \
+    && "$COMFY_VENV/bin/python" -c "from importlib.metadata import version; print('Baked ComfyUI-Manager:', version('comfyui-manager'))"
+
 RUN python3 -m pip install --no-deps /tmp/sage-wheels/*.whl \
     && SAGE_ATTENTION_MAJOR="$SAGE_ATTENTION_MAJOR" \
       SAGE_ATTENTION_VERSION="$SAGE_ATTENTION_VERSION" \

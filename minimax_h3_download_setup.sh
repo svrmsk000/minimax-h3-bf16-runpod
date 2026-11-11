@@ -265,11 +265,16 @@ ensure_comfyui() {
 
 
 ensure_comfyui_manager() {
-  cd "$COMFY"
-  echo "Installing ComfyUI-Manager V4 from PyPI into the active ComfyUI environment."
-  python3 -m pip install -U --pre comfyui-manager
-  python3 -c "from importlib.metadata import version; print('ComfyUI-Manager:', version('comfyui-manager'))"
-  echo "Installed PACKAGE ComfyUI-Manager"
+  local python_bin="$VENV/bin/python"
+  test -x "$python_bin" || {
+    echo "FATAL: ComfyUI Python environment is missing: $python_bin" >&2
+    return 1
+  }
+  "$python_bin" -c "from importlib.metadata import version; print('Baked ComfyUI-Manager:', version('comfyui-manager'))" || {
+    echo "FATAL: ComfyUI-Manager is missing from the image. Rebuild the image; startup does not install packages." >&2
+    return 1
+  }
+  echo "Ready PACKAGE ComfyUI-Manager (preinstalled in image)"
 }
 
 ensure_sglang_h3_node() {
