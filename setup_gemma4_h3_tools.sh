@@ -38,11 +38,7 @@ wget -c \
     -O "$GEMMA_26B_DIR/gemma-4-26B-A4B-it-UD-Q4_K_XL.gguf"
 
 wget -c \
-    "https://huggingface.co/unsloth/gemma-4-31B-it-GGUF/resolve/main/mmproj-BF16.gguf" \
+    "https://huggingface.co/unsloth/gemma-4-26B-A4B-it-GGUF/resolve/main/mmproj-BF16.gguf" \
     -O "$GEMMA_26B_DIR/mmproj-BF16.gguf"
-
-wget -c \
-    "https://huggingface.co/lightx2v/Minimax-h3-Turbo/resolve/main/minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors" \
-    -O "$LORAS_DIR/minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors"
 
 echo "Gemma 4 26B Prompt Writer setup completed."
