@@ -1059,26 +1059,6 @@ validate_all_models() {
     "${all_downloads[@]}"
 }
 
-patch_start_credentials() {
-  echo "Patching original /start.sh for custom FileBrowser credentials..."
-  python3 - <<'PY_PATCH_START'
-from pathlib import Path
-
-p = Path('/start.sh')
-s = p.read_text()
-old = 'filebrowser users add admin adminadmin12 --perm.admin'
-new = 'filebrowser users add "${FILEBROWSER_USERNAME:-admin}" "${FILEBROWSER_PASSWORD:-adminadmin12}" --perm.admin'
-if old in s:
-    s = s.replace(old, new)
-    print('Patched FileBrowser credentials line in /start.sh.')
-elif new in s:
-    print('/start.sh already has custom FileBrowser credential support.')
-else:
-    print('WARNING: Could not find FileBrowser credentials line in /start.sh; leaving it unchanged.')
-p.write_text(s)
-PY_PATCH_START
-}
-
 start_ready_notification() {
   local readiness_detail="$1"
   [ -n "${NTFY_TOPIC:-}" ] || return 0
@@ -1166,7 +1146,7 @@ main() {
   validate_installed_workflows
 
   if [ "${MINIMAX_H3_SKIP_MODEL_DOWNLOADS:-0}" = "1" ]; then
-    patch_start_credentials
+
     write_status "models-manual" \
       "ComfyUI setup completed. MiniMax H3 model downloads are disabled during startup; run download_minimax_h3_models.sh manually when needed."
     setup_complete=1
@@ -1191,7 +1171,6 @@ main() {
   validate_model_group "$FIRST_MODEL_NAME, Ref2VA Turbo LoRA, and all shared model assets" \
     "${foreground_downloads[@]}"
 
-  patch_start_credentials
   readiness_detail="ComfyUI started with $FIRST_MODEL_NAME ready. $DEFERRED_MODEL_NAME is downloading in the background; refresh the model list after its completion notification."
   if [ "${#SEED_HUNTER_DOWNLOADS[@]}" -gt 0 ]; then
     readiness_detail="ComfyUI started with $FIRST_MODEL_NAME ready. $DEFERRED_MODEL_NAME and the Ada/Blackwell Seed Hunter support models are downloading in the background."
