@@ -507,7 +507,7 @@ validate_installed_workflows() {
     expected_count=12
     include_seed_hunter=1
   fi
-  "$VENV/bin/python" - "$COMFY" "$BUNDLE_ROOT/asset-manifest.tsv" "$GPU_FAMILY" "$expected_count" "$include_seed_hunter" <<'PY_WORKFLOWS'
+  "$BOOTSTRAP_PYTHON" - "$COMFY" "$BUNDLE_ROOT/asset-manifest.tsv" "$GPU_FAMILY" "$expected_count" "$include_seed_hunter" <<'PY_WORKFLOWS'
 import json
 import pathlib
 import sys
