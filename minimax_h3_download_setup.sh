@@ -507,7 +507,7 @@ validate_installed_workflows() {
     expected_count=12
     include_seed_hunter=1
   fi
-  python - "$COMFY" "$BUNDLE_ROOT/asset-manifest.tsv" "$GPU_FAMILY" "$expected_count" "$include_seed_hunter" <<'PY_WORKFLOWS'
+  "$VENV/bin/python" - "$COMFY" "$BUNDLE_ROOT/asset-manifest.tsv" "$GPU_FAMILY" "$expected_count" "$include_seed_hunter" <<'PY_WORKFLOWS'
 import json
 import pathlib
 import sys
@@ -707,11 +707,12 @@ prepare_local_models() {
       if [ "$actual" -gt "$expected" ]; then
         quarantine_invalid_file "$part" "oversized partial model"
       elif [ "$actual" -eq "$expected" ]; then
-        if validate_model_file "$part" "$expected" "${DOWNLOAD_SHA256[$index]}"; then
+        if validate_model_file "$part" "$expected" "${DOWNLOAD_SHA256[$index]}" \
+          && [ "$(sha256_file "$part")" = "${DOWNLOAD_SHA256[$index]}" ]; then
           mv "$part" "$out"
           echo "Recovered complete model from partial file: $(basename "$out")"
         else
-          quarantine_invalid_file "$part" "invalid complete partial model"
+          quarantine_invalid_file "$part" "invalid complete partial model or SHA256 mismatch"
         fi
       fi
     fi
@@ -781,7 +782,7 @@ download_file() {
   local expected_sha256="$5"
   local part="${out}.part"
   local curl_log="${part}.curl.log"
-  local name started initial_bytes now bytes elapsed transferred average_speed
+  local name started initial_bytes now bytes elapsed transferred average_speed actual_sha256
   local sample_started sample_elapsed sample_bytes current_speed file_remaining file_eta
   local status_printed=0 last_status_elapsed=0 last_observed_bytes stall_notified=0
   local slow_samples=0 reconnect_count=0 reconnect_requested=0 reconnect_limit_reported=0 curl_pid
@@ -797,13 +798,21 @@ download_file() {
   name="$(basename "$out")"
 
   if validate_model_file "$out" "$expected_size" "$expected_sha256"; then
-    printf 'Ready %-5s  %s (validated)\n' "$kind" "$name"
-    return 0
+    actual_sha256="$(sha256_file "$out")"
+    if [ "$actual_sha256" = "$expected_sha256" ]; then
+      printf 'Ready %-5s  %s (validated)\n' "$kind" "$name"
+      return 0
+    fi
+    quarantine_invalid_file "$out" "completed model with SHA256 mismatch"
   fi
   if validate_model_file "$part" "$expected_size" "$expected_sha256"; then
-    mv "$part" "$out"
-    printf 'Ready %-5s  %s (recovered complete partial)\n' "$kind" "$name"
-    return 0
+    actual_sha256="$(sha256_file "$part")"
+    if [ "$actual_sha256" = "$expected_sha256" ]; then
+      mv "$part" "$out"
+      printf 'Ready %-5s  %s (recovered complete partial)\n' "$kind" "$name"
+      return 0
+    fi
+    quarantine_invalid_file "$part" "complete partial model with SHA256 mismatch"
   fi
 
   if [ -n "${HF_TOKEN:-}" ]; then
