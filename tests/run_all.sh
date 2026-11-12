@@ -14,7 +14,10 @@ fi
 export MINIMAX_H3_PYTHON_BIN="$python_bin"
 export PYTHON_TEST_BIN="$python_bin"
 
-bash -n "$repo_root"/*.sh "$repo_root"/tests/*.sh
+for script in "$repo_root"/*.sh "$repo_root"/tests/*.sh "$repo_root"/sglang/*.sh "$repo_root"/sglang/sgmax "$repo_root"/comfyui/comfyui; do
+  [ -f "$script" ] || continue
+  bash -n "$script"
+done
 bash "$repo_root/tests/driver_preflight_test.sh"
 bash "$repo_root/tests/sage_matrix_test.sh"
 bash "$repo_root/tests/sglang_profiles_test.sh"
