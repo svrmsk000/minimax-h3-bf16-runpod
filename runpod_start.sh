@@ -97,6 +97,7 @@ service comfyui start
 shutdown_services() {
   echo "Stopping MiniMax H3 services..."
   service comfyui stop || true
+  if [ "${MINIMAX_H3_ENABLE_SGLANG:-0}" = "1" ]; then service sgmax 1 stop || true; fi
   pkill -TERM -f 'jupyter-lab' 2>/dev/null || true
   pkill -TERM -x filebrowser 2>/dev/null || true
   pkill -TERM -x sshd 2>/dev/null || true
