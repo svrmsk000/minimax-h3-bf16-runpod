@@ -22,12 +22,13 @@ printf '# model\n' > "$COMFY_BAKED/comfy/ldm/minimax/model.py"
 printf '%s\n' "$EXPECTED_CORE_COMMIT" > "$COMFY_BAKED/.minimax-h3-core-commit"
 printf '%s\n' "$EXPECTED_CORE_COMMIT" > "$COMFY/.minimax-h3-core-commit"
 mkdir -p "$VENV/bin"
-printf '#!/usr/bin/env bash\n' > "$VENV/bin/python"
+printf '#!/usr/bin/env bash\nexit 0\n' > "$VENV/bin/python"
 chmod +x "$VENV/bin/python"
-: > "$VENV/bin/activate"
+printf 'VIRTUAL_ENV="/opt/comfyui-venv"\n' > "$VENV/bin/activate"
 ensure_comfyui >/dev/null
 [ -f "$COMFY/main.py" ]
 [ -f "$COMFY/comfy_extras/nodes_minimax_h3.py" ]
+grep -Fq "VIRTUAL_ENV=\"$VENV\"" "$VENV/bin/activate"
 grep -q "^$EXPECTED_CORE_COMMIT$" "$COMFY/.minimax-h3-core-commit"
 
 printf '%s\t%s\t%s\n' \
