@@ -77,6 +77,7 @@ ARG COMFYUI_MANAGER_COMMIT=15e49ea544a4b20627c2eec01341843e8c4b6d49
 ARG PIXAROMA_COMMIT=433bbedc7f43d717fcb9e8e9aa9cbd26b0439226
 
 ENV COMFY_VENV=/workspace/runpod-slim/ComfyUI/.venv-cu130 \
+    COMFYUI_VENV_NAME=.venv-cu130 \
     SAGE_SUPPORTED_CC=${SAGE_CUDA_ARCH_LIST} \
     SAGE_ATTENTION_MAJOR=${SAGE_ATTENTION_MAJOR} \
     SAGE_ATTENTION_VERSION=${SAGE_ATTENTION_VERSION} \
@@ -95,6 +96,14 @@ RUN python3 -m pip uninstall -y sageattention sageattn3 >/dev/null 2>&1 || true
 # replaces the base image's baked tree. Install its missing Python dependencies
 # at image-build time; no package installation is performed when the Pod starts.
 RUN python3 -m pip install --no-cache-dir huggingface-hub typing-extensions nh3
+
+# Create the CUDA 13 ComfyUI venv at build time. It exposes the image's
+# preinstalled system Python packages (including CUDA PyTorch and SageAttention)
+# without installing anything when a Pod starts. The runtime copies this baked
+# environment into the persistent workspace only when it is absent.
+RUN mkdir -p /opt/comfyui-venv \
+    && python3.12 -m venv --system-site-packages --without-pip /opt/comfyui-venv \
+    && /opt/comfyui-venv/bin/python -c "import torch; assert torch.version.cuda == '13.0', torch.version.cuda; print('Baked ComfyUI Python:', __import__('sys').executable, 'PyTorch CUDA:', torch.version.cuda)"
 
 RUN set -eux; \
     git init /tmp/ComfyUI-Manager; \
