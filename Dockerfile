@@ -87,15 +87,11 @@ ENV COMFY_VENV=/workspace/runpod-slim/ComfyUI/.venv-cu130 \
     MINIMAX_H3_REQUIRED_DRIVER_MAJOR=580 \
     SGLANG_VENV=/opt/minimax-h3/sglang-venv \
     COMFYUI_H3_COMMIT=${COMFYUI_COMMIT} \
+    COMFYUI_MANAGER_COMMIT=${COMFYUI_MANAGER_COMMIT} \
     PIXAROMA_H3_COMMIT=${PIXAROMA_COMMIT}
 
 COPY --from=sage-builder /tmp/sage-wheels /tmp/sage-wheels
 RUN python3 -m pip uninstall -y sageattention sageattn3 >/dev/null 2>&1 || true
-
-# Restore ComfyUI-Manager as a custom node after the pinned ComfyUI tree
-# replaces the base image's baked tree. Install its missing Python dependencies
-# at image-build time; no package installation is performed when the Pod starts.
-RUN python3 -m pip install --no-cache-dir huggingface-hub typing-extensions nh3
 
 # Create the CUDA 13 ComfyUI venv at build time. It exposes the image's
 # preinstalled system Python packages (including CUDA PyTorch and SageAttention)
@@ -137,6 +133,8 @@ RUN set -eux; \
     cp -a /tmp/ComfyUI-Manager/. /opt/comfyui-baked/custom_nodes/comfyui-manager/; \
     rm -rf /opt/comfyui-baked/custom_nodes/comfyui-manager/.git /tmp/ComfyUI-Manager; \
     test -f /opt/comfyui-baked/custom_nodes/comfyui-manager/__init__.py; \
+    printf '%s\\n' "$COMFYUI_MANAGER_COMMIT" > /opt/comfyui-baked/custom_nodes/comfyui-manager/.minimax-h3-managed-commit; \
+    python3 -m pip install --no-cache-dir huggingface-hub typing-extensions nh3; \
     python3 -c 'from importlib.metadata import version; required = ["GitPython", "PyGithub", "matrix-nio", "transformers", "huggingface-hub", "typer", "rich", "typing-extensions", "toml", "chardet", "packaging", "nh3"]; missing = [name for name in required if not any(d.metadata["Name"].lower().replace("_", "-").replace(".", "-") == name.lower().replace("_", "-").replace(".", "-") for d in __import__("importlib.metadata", fromlist=["distributions"]).distributions())]; assert not missing, "Missing baked ComfyUI-Manager dependencies: " + ", ".join(missing); print("Baked ComfyUI-Manager source and dependencies verified")'
 
 # Ensure the retired NVFP4 text encoder is not present in either ComfyUI location.
@@ -190,3 +188,14 @@ RUN SGLANG_VENV=/opt/minimax-h3/sglang-venv \
     && test -x /opt/minimax-h3/sglang-venv/bin/sglang
 
 ENTRYPOINT ["/entrypoint.sh"]
+
+# Final-image contract: verify the runtime payload after every bake/copy step.
+RUN set -eux; \
+    test -f /opt/comfyui-baked/main.py; \
+    test -f /opt/comfyui-baked/comfy_extras/nodes_minimax_h3.py; \
+    test -f /opt/comfyui-baked/custom_nodes/comfyui-manager/__init__.py; \
+    test "$(cat /opt/comfyui-baked/custom_nodes/comfyui-manager/.minimax-h3-managed-commit)" = "$COMFYUI_MANAGER_COMMIT"; \
+    test -f /opt/comfyui-baked/custom_nodes/ComfyUI-MiniMaxH3-SGLang/nodes.py; \
+    test -f /opt/comfyui-baked/custom_nodes/ComfyUI-Pixaroma/nodes/node_h3_audio_sync.py; \
+    test -x /opt/comfyui-venv/bin/python; \
+    /opt/comfyui-venv/bin/python -c "import torch; assert torch.version.cuda == '13.0', torch.version.cuda; import sys; assert sys.version_info >= (3, 12); print('Final ComfyUI runtime payload verified')";
