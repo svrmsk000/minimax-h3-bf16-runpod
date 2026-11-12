@@ -56,7 +56,7 @@ echo "Resumable download test passed."
 # A same-size, structurally valid but hash-corrupted completed file is quarantined and redownloaded.
 bad_out="$tmp/models/hash-mismatch.safetensors"
 cp "$tmp/source.safetensors" "$bad_out"
-printf '\\001' | dd of="$bad_out" bs=1 seek=$((expected_size - 1)) conv=notrunc status=none
+printf '\001' | dd of="$bad_out" bs=1 seek=$((expected_size - 1)) conv=notrunc status=none
 download_file "MODEL" "file://$tmp/source.safetensors" "$bad_out" "$expected_size" "$expected_sha" >/dev/null
 cmp "$tmp/source.safetensors" "$bad_out"
 find "$tmp/models" -maxdepth 1 -name 'hash-mismatch.safetensors.invalid-*' | grep -q .
