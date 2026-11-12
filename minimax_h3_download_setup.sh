@@ -263,6 +263,28 @@ ensure_comfyui() {
     echo "FATAL: Could not restore the baked ComfyUI Python environment at $VENV." >&2
     return 1
   fi
+  # venv activation scripts embed the original /opt build path; rewrite it
+  # after copying so PATH and VIRTUAL_ENV point at the persistent workspace.
+  if [ -f "$VENV/bin/activate" ]; then
+    sed -i "s|^VIRTUAL_ENV=.*|VIRTUAL_ENV=\"$VENV\"|" "$VENV/bin/activate"
+  fi
+  if ! "$VENV/bin/python" - "$VENV" <<'PY_VENV'
+import pathlib
+import sys
+import torch
+
+expected = pathlib.Path(sys.argv[1]).resolve()
+actual = pathlib.Path(sys.prefix).resolve()
+if actual != expected:
+    raise SystemExit(f"ComfyUI venv relocation failed: expected {expected}, found {actual}")
+if torch.version.cuda != "13.0":
+    raise SystemExit(f"ComfyUI venv has the wrong PyTorch CUDA build: {torch.version.cuda}")
+print(f"ComfyUI venv verified at {actual} (CUDA {torch.version.cuda})")
+PY_VENV
+  then
+    echo "FATAL: The copied ComfyUI Python environment is not usable at $VENV." >&2
+    return 1
+  fi
   source "$VENV/bin/activate"
 
   mkdir -p \
