@@ -73,7 +73,7 @@ ARG SAGE_ATTENTION_VERSION=2.2.0
 ARG COMFY_SAGE_ATTENTION3=0
 ARG MINIMAX_H3_GPU_FAMILY=ada
 ARG COMFYUI_COMMIT=63be2f9b82ad0dac88a7ceaa28a9cf3154125a18
-ARG COMFYUI_MANAGER_COMMIT=15e49ea544a4b20627c2eec01341843e8c4b6d49
+ARG COMFYUI_MANAGER_COMMIT=bd4ede2237c97b3a71569a0301a0be9db226c7e9
 ARG PIXAROMA_COMMIT=433bbedc7f43d717fcb9e8e9aa9cbd26b0439226
 
 ENV COMFY_VENV=/workspace/runpod-slim/ComfyUI/.venv-cu130 \
@@ -129,6 +129,7 @@ RUN set -eux; \
     git -C /tmp/ComfyUI-Manager fetch --depth 1 origin "$COMFYUI_MANAGER_COMMIT"; \
     git -C /tmp/ComfyUI-Manager checkout --detach FETCH_HEAD; \
     test "$(git -C /tmp/ComfyUI-Manager rev-parse HEAD)" = "$COMFYUI_MANAGER_COMMIT"; \
+    python3 -c 'import tomllib; from pathlib import Path; v=tuple(map(int, tomllib.loads(Path("/tmp/ComfyUI-Manager/pyproject.toml").read_text())["project"]["version"].split("."))); assert v >= (4, 2, 1), f"ComfyUI-Manager {v} is below 4.2.1"; print("ComfyUI-Manager version:", v)'; \
     mkdir -p /opt/comfyui-baked/custom_nodes/comfyui-manager; \
     cp -a /tmp/ComfyUI-Manager/. /opt/comfyui-baked/custom_nodes/comfyui-manager/; \
     rm -rf /opt/comfyui-baked/custom_nodes/comfyui-manager/.git /tmp/ComfyUI-Manager; \
