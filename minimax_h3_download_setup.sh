@@ -521,7 +521,7 @@ files = []
 for raw in manifest.read_text(encoding="utf-8").splitlines():
     if not raw or raw.startswith("#"):
         continue
-    fields = raw.split("\\t")
+    fields = raw.split("\t")
     if len(fields) < 4 or fields[0] != "workflow":
         continue
     families = fields[4] if len(fields) > 4 else "all"
