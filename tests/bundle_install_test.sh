@@ -31,7 +31,9 @@ GPU_FAMILY=ampere
 family_switch_output="$(install_bundle)"
 grep -q "Preserved family-incompatible workflow" <<< "$family_switch_output"
 workflow_count="$(find "$COMFY/user/default/workflows/MiniMax H3" -type f -name '*.json' | wc -l | tr -d '[:space:]')"
-[ "$workflow_count" = "11" ]
+# The count includes the user's own workflow, which must survive the GPU-family switch.
+[ "$workflow_count" = "12" ]
+[ -f "$COMFY/user/default/workflows/MiniMax H3/My Custom Workflow.json" ]
 [ ! -f "$COMFY/user/default/workflows/MiniMax H3/5. Seed Hunter (Ada-Blackwell)/Minimax H3 - Seed Hunter + Upscale + Continuation v1.2.1.json" ]
 find "$COMFY/user/default/workflows/MiniMax H3" \
   -type f -name '*.json.unsupported-on-ampere-*' | grep -q .
