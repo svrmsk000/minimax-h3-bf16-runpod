@@ -161,6 +161,7 @@ COPY minimax_h3_download_setup.sh /opt/minimax-h3/minimax_h3_download_setup.sh
 COPY download_minimax_h3_models.sh /opt/minimax-h3/download_minimax_h3_models.sh
 COPY driver_preflight.sh /driver_preflight.sh
 COPY entrypoint.sh /entrypoint.sh
+COPY runpod_start.sh /start.sh
 COPY sage_bootstrap.sh /sage_bootstrap.sh
 
 RUN set -e; \
@@ -171,7 +172,7 @@ RUN set -e; \
       /opt/minimax-h3/sglang/start_minimax_h3_ref2va.sh \
       /opt/minimax-h3/sglang/sgmax \
       /opt/minimax-h3/comfyui-service \
-      /driver_preflight.sh /entrypoint.sh /sage_bootstrap.sh; do \
+      /driver_preflight.sh /entrypoint.sh /sage_bootstrap.sh /start.sh; do \
       bash -n "$script"; \
     done; \
     chmod +x /opt/minimax-h3/minimax_h3_download_setup.sh \
@@ -180,7 +181,7 @@ RUN set -e; \
       /opt/minimax-h3/sglang/start_minimax_h3_ref2va.sh \
       /opt/minimax-h3/sglang/sgmax \
       /opt/minimax-h3/comfyui-service \
-      /driver_preflight.sh /entrypoint.sh /sage_bootstrap.sh \
+      /driver_preflight.sh /entrypoint.sh /sage_bootstrap.sh /start.sh \
     && ln -sf /opt/minimax-h3/sglang/sgmax /etc/init.d/sgmax \
     && ln -sf /opt/minimax-h3/comfyui-service /etc/init.d/comfyui
 
