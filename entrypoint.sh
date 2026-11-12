@@ -15,7 +15,7 @@ MINIMAX_H3_SKIP_MODEL_DOWNLOADS=1 bash "$setup_script"
 
 echo "Running SageAttention bootstrap..."
 # Source the bootstrap so its selected Sage 2/Sage 3 backend environment is
-# inherited by the original RunPod start script.
+# inherited by the image-baked RunPod service launcher.
 source /sage_bootstrap.sh
 sage_bootstrap_main
 
