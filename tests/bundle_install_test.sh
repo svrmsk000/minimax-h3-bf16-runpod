@@ -20,9 +20,12 @@ workflow_count="$(find "$COMFY/user/default/workflows/MiniMax H3" -type f -name 
 
 custom="$COMFY/user/default/workflows/MiniMax H3/4. Generate Image H3 (fl2va)/Minimax H3 - Text to image.json"
 printf '{"customized":true}\n' > "$custom"
+printf '{"user_workflow":true,"nodes":[]}\n' > "$COMFY/user/default/workflows/MiniMax H3/My Custom Workflow.json"
 second_install_output="$(install_bundle)"
 grep -q "Preserved customized workflow" <<< "$second_install_output"
 grep -q '"customized":true' "$custom"
+# User-added workflows must not be included in the bundled workflow count.
+validate_installed_workflows
 
 GPU_FAMILY=ampere
 family_switch_output="$(install_bundle)"
