@@ -440,10 +440,6 @@ ensure_seed_hunter_nodes() {
 resolve_script_base_url() {
   if [ -n "${MINIMAX_H3_ASSET_BASE_URL:-}" ]; then
     SCRIPT_BASE_URL="${MINIMAX_H3_ASSET_BASE_URL%/}"
-  elif [ -n "${SETUP_SCRIPT_URL:-}" ]; then
-    SCRIPT_BASE_URL="${SETUP_SCRIPT_URL%/*}"
-  elif [ -n "${MINIMAX_H3_SETUP_SCRIPT_URL:-}" ]; then
-    SCRIPT_BASE_URL="${MINIMAX_H3_SETUP_SCRIPT_URL%/*}"
   else
     SCRIPT_BASE_URL=""
   fi
