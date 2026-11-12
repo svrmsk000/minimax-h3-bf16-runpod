@@ -273,11 +273,31 @@ ensure_comfyui() {
 
 ensure_comfyui_manager() {
   local manager_dir="$COMFY/custom_nodes/comfyui-manager"
-  test -f "$manager_dir/__init__.py" || {
-    echo "FATAL: Baked ComfyUI-Manager custom node is missing: $manager_dir" >&2
+  local baked_manager="$COMFY_BAKED/custom_nodes/comfyui-manager"
+  local staging="$COMFY/custom_nodes/comfyui-manager.minimax-h3-part"
+  local backup
+
+  if [ -f "$manager_dir/__init__.py" ]; then
+    echo "Ready custom node ComfyUI-Manager"
+    return 0
+  fi
+
+  if [ ! -f "$baked_manager/__init__.py" ]; then
+    echo "FATAL: Baked ComfyUI-Manager source is missing: $baked_manager" >&2
     return 1
-  }
-  echo "Ready custom node ComfyUI-Manager (baked into image)"
+  fi
+
+  if [ -e "$manager_dir" ]; then
+    backup="$manager_dir.pre-minimax-h3-$(date +%Y%m%dT%H%M%S)"
+    mv "$manager_dir" "$backup"
+    echo "Preserved incomplete ComfyUI-Manager directory at: $backup"
+  fi
+
+  rm -rf "$staging"
+  cp -a "$baked_manager" "$staging"
+  test -f "$staging/__init__.py"
+  mv "$staging" "$manager_dir"
+  echo "Installed ComfyUI-Manager from the image-baked source (no runtime download or package installation)."
 }
 
 ensure_sglang_h3_node() {
