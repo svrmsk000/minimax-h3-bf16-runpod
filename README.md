@@ -41,7 +41,6 @@ SETUP_SCRIPT_URL=https://raw.githubusercontent.com/svrmsk000/minimax-h3-bf16-run
 - `MINIMAX_H3_DISK_RESERVE_GB` (default 10)
 - `MINIMAX_H3_MIN_DOWNLOAD_MIBPS` (default 5)
 - `MINIMAX_H3_RECONNECT_LIMIT` (default 3 per file)
-- `MINIMAX_H3_VERIFY_SHA256=1` (optional full SHA256 pass)
 - `MINIMAX_H3_REFRESH_WORKFLOWS=1`
 - `MINIMAX_H3_REFRESH_MEDIA=1`
 - `ENABLE_SAGE_ATTENTION=0` (emergency opt-out; Sage is required by default)
@@ -66,9 +65,9 @@ service comfyui restart
 service comfyui status
 ```
 
-The service launches `python3 main.py --listen 0.0.0.0 --port 8188 --enable-cors-header --preview-method none --high-ram --enable-manager` from `/workspace/runpod-slim/ComfyUI`. Its log is `/tmp/comfyui.log`. If ComfyUI is already running from the RunPod startup script, `service comfyui start` adopts the existing process instead of launching a duplicate.
+The service launches the baked ComfyUI Python interpreter from `COMFY_VENV` (default `/workspace/runpod-slim/ComfyUI/.venv-cu130`) and reads additional arguments from `/workspace/runpod-slim/comfyui_args.txt`. This is how SageAttention 2's `--use-sage-attention` flag reaches ComfyUI; Blackwell SageAttention 3 is enabled through the exported `COMFY_SAGE_ATTENTION3` setting. Its log is `/tmp/comfyui.log`. If ComfyUI is already running from the RunPod startup script, `service comfyui start` adopts the existing process instead of launching a duplicate.
 
-ComfyUI-Manager V4 is installed during cold-start setup with `python3 -m pip install -U --pre comfyui-manager` in the active ComfyUI Python environment. It is installed as a Python package, not copied into `custom_nodes`.
+ComfyUI-Manager is pinned to `COMFYUI_MANAGER_COMMIT`, copied into `custom_nodes/comfyui-manager` during image build, and synchronized from the image at cold start. Its Python dependencies are installed during image build; Pod startup does not install Manager or its dependencies.
 
 ## SGLang Diffusion (RTX 5090)
 
