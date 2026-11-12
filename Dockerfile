@@ -158,6 +158,7 @@ RUN apt-get update \
 COPY sglang/ /opt/minimax-h3/sglang/
 COPY comfyui/comfyui /opt/minimax-h3/comfyui-service
 COPY minimax_h3_download_setup.sh /opt/minimax-h3/minimax_h3_download_setup.sh
+COPY download_minimax_h3_models.sh /opt/minimax-h3/download_minimax_h3_models.sh
 COPY driver_preflight.sh /driver_preflight.sh
 COPY entrypoint.sh /entrypoint.sh
 COPY sage_bootstrap.sh /sage_bootstrap.sh
@@ -198,4 +199,5 @@ RUN set -eux; \
     test -f /opt/comfyui-baked/custom_nodes/ComfyUI-MiniMaxH3-SGLang/nodes.py; \
     test -f /opt/comfyui-baked/custom_nodes/ComfyUI-Pixaroma/nodes/node_h3_audio_sync.py; \
     test -x /opt/comfyui-venv/bin/python; \
+    test -x /opt/minimax-h3/download_minimax_h3_models.sh; \
     /opt/comfyui-venv/bin/python -c "import torch; assert torch.version.cuda == '13.0', torch.version.cuda; import sys; assert sys.version_info >= (3, 12); print('Final ComfyUI runtime payload verified')";
