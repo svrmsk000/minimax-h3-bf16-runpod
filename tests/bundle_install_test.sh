@@ -19,7 +19,7 @@ workflow_count="$(find "$COMFY/user/default/workflows/MiniMax H3" -type f -name 
 [ "$workflow_count" = "12" ]
 
 custom="$COMFY/user/default/workflows/MiniMax H3/4. Generate Image H3 (fl2va)/Minimax H3 - Text to image.json"
-printf '{"customized":true}\n' > "$custom"
+printf '{"customized":true,"nodes":[]}\n' > "$custom"
 printf '{"user_workflow":true,"nodes":[]}\n' > "$COMFY/user/default/workflows/MiniMax H3/My Custom Workflow.json"
 second_install_output="$(install_bundle)"
 grep -q "Preserved customized workflow" <<< "$second_install_output"
