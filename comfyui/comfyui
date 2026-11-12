@@ -13,6 +13,8 @@ NAME="comfyui"
 COMFY="${COMFY:-/workspace/runpod-slim/ComfyUI}"
 PIDFILE="${COMFYUI_PIDFILE:-/run/comfyui.pid}"
 LOGFILE="${COMFYUI_LOGFILE:-/tmp/comfyui.log}"
+ARGS_FILE="${COMFY_ARGS_FILE:-/workspace/runpod-slim/comfyui_args.txt}"
+PYTHON_BIN="${COMFY_PYTHON_BIN:-${COMFY_VENV:-$COMFY/.venv-cu130}/bin/python}"
 
 pid_is_comfyui() {
   local pid="$1" cmd cwd
@@ -56,10 +58,33 @@ do_start() {
     echo "ERROR: ComfyUI main.py not found: $COMFY/main.py" >&2
     return 1
   fi
+  if [ ! -x "$PYTHON_BIN" ]; then
+    echo "ERROR: ComfyUI Python environment not found: $PYTHON_BIN" >&2
+    return 1
+  fi
+  local -a extra_args=()
+  local line skip_next=0
+  if [ -f "$ARGS_FILE" ]; then
+    while IFS= read -r line || [ -n "$line" ]; do
+      local -a line_args=()
+      read -r -a line_args <<< "$line"
+      for arg in "${line_args[@]}"; do
+        if [ "$skip_next" -eq 1 ]; then
+          skip_next=0
+          continue
+        fi
+        if [ "$arg" = "--preview-method" ]; then
+          skip_next=1
+          continue
+        fi
+        extra_args+=("$arg")
+      done
+    done < "$ARGS_FILE"
+  fi
   mkdir -p "$(dirname "$PIDFILE")" "$(dirname "$LOGFILE")"
   echo "Starting ComfyUI; log: $LOGFILE"
   cd "$COMFY" || return 1
-  nohup setsid python3 main.py --listen 0.0.0.0 --port 8188 --enable-cors-header --preview-method none --high-ram --enable-manager >>"$LOGFILE" 2>&1 </dev/null &
+  nohup setsid "$PYTHON_BIN" main.py --listen 0.0.0.0 --port 8188 --enable-cors-header --preview-method none --high-ram --enable-manager "${extra_args[@]}" >>"$LOGFILE" 2>&1 </dev/null &
   pid=$!
   printf '%s\n' "$pid" > "$PIDFILE"
   sleep 2
