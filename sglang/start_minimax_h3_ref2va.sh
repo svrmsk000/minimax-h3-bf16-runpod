@@ -68,7 +68,7 @@ exec "$VENV/bin/sglang" serve \
   --layerwise-resident-layers "video_vae=$VIDEO_VAE_RESIDENT_LAYERS" \
   --enable-torch-compile false \
   --warmup-resolutions "${SGLANG_WARMUP_RESOLUTIONS:-1344x768}" \
-  --warmup-num-frames "${SGLANG_WARMUP_NUM_FRAMES:-24}" \
+  --warmup-num-frames "${SGLANG_WARMUP_NUM_FRAMES:-124}" \
   --host "${SGLANG_HOST:-0.0.0.0}" \
   --port "${SGLANG_PORT:-30010}" \
   "${EXTRA_ARGS[@]}"
