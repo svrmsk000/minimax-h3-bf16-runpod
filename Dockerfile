@@ -164,12 +164,14 @@ COPY entrypoint.sh /entrypoint.sh
 COPY sage_bootstrap.sh /sage_bootstrap.sh
 
 RUN bash -n /opt/minimax-h3/minimax_h3_download_setup.sh \
+    /opt/minimax-h3/download_minimax_h3_models.sh \
     /opt/minimax-h3/sglang/install_sglang.sh \
     /opt/minimax-h3/sglang/start_minimax_h3_ref2va.sh \
     /opt/minimax-h3/sglang/sgmax \
     /opt/minimax-h3/comfyui-service \
     /driver_preflight.sh /entrypoint.sh /sage_bootstrap.sh \
     && chmod +x /opt/minimax-h3/minimax_h3_download_setup.sh \
+      /opt/minimax-h3/download_minimax_h3_models.sh \
       /opt/minimax-h3/sglang/install_sglang.sh \
       /opt/minimax-h3/sglang/start_minimax_h3_ref2va.sh \
       /opt/minimax-h3/sglang/sgmax \
