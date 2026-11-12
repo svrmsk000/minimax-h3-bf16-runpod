@@ -105,18 +105,6 @@ RUN mkdir -p /opt/comfyui-venv \
     && python3.12 -m venv --system-site-packages --without-pip /opt/comfyui-venv \
     && /opt/comfyui-venv/bin/python -c "import torch; assert torch.version.cuda == '13.0', torch.version.cuda; print('Baked ComfyUI Python:', __import__('sys').executable, 'PyTorch CUDA:', torch.version.cuda)"
 
-RUN set -eux; \
-    git init /tmp/ComfyUI-Manager; \
-    git -C /tmp/ComfyUI-Manager remote add origin https://github.com/Comfy-Org/ComfyUI-Manager.git; \
-    git -C /tmp/ComfyUI-Manager fetch --depth 1 origin "$COMFYUI_MANAGER_COMMIT"; \
-    git -C /tmp/ComfyUI-Manager checkout --detach FETCH_HEAD; \
-    test "$(git -C /tmp/ComfyUI-Manager rev-parse HEAD)" = "$COMFYUI_MANAGER_COMMIT"; \
-    mkdir -p /opt/comfyui-baked/custom_nodes/comfyui-manager; \
-    cp -a /tmp/ComfyUI-Manager/. /opt/comfyui-baked/custom_nodes/comfyui-manager/; \
-    rm -rf /opt/comfyui-baked/custom_nodes/comfyui-manager/.git /tmp/ComfyUI-Manager; \
-    test -f /opt/comfyui-baked/custom_nodes/comfyui-manager/__init__.py; \
-    python3 -c 'from importlib.metadata import version; required = ["GitPython", "PyGithub", "matrix-nio", "transformers", "huggingface-hub", "typer", "rich", "typing-extensions", "toml", "chardet", "packaging", "nh3"]; missing = [name for name in required if not any(d.metadata["Name"].lower().replace("_", "-").replace(".", "-") == name.lower().replace("_", "-").replace(".", "-") for d in __import__("importlib.metadata", fromlist=["distributions"]).distributions())]; assert not missing, "Missing baked ComfyUI-Manager dependencies: " + ", ".join(missing); print("Baked ComfyUI-Manager source and dependencies verified")'
-
 RUN python3 -m pip install --no-deps /tmp/sage-wheels/*.whl \
     && SAGE_ATTENTION_MAJOR="$SAGE_ATTENTION_MAJOR" \
       SAGE_ATTENTION_VERSION="$SAGE_ATTENTION_VERSION" \
@@ -137,6 +125,19 @@ RUN COMFYUI_COMMIT="$COMFYUI_H3_COMMIT" \
     && python3 main.py --cpu --quick-test-for-ci \
     && rm -f /tmp/bake_comfyui_core.sh /tmp/bake_custom_nodes.sh \
       /tmp/comfyui-sage3-global.patch
+
+# Add ComfyUI-Manager only after bake_comfyui_core.sh has recreated /opt/comfyui-baked.
+RUN set -eux; \
+    git init /tmp/ComfyUI-Manager; \
+    git -C /tmp/ComfyUI-Manager remote add origin https://github.com/Comfy-Org/ComfyUI-Manager.git; \
+    git -C /tmp/ComfyUI-Manager fetch --depth 1 origin "$COMFYUI_MANAGER_COMMIT"; \
+    git -C /tmp/ComfyUI-Manager checkout --detach FETCH_HEAD; \
+    test "$(git -C /tmp/ComfyUI-Manager rev-parse HEAD)" = "$COMFYUI_MANAGER_COMMIT"; \
+    mkdir -p /opt/comfyui-baked/custom_nodes/comfyui-manager; \
+    cp -a /tmp/ComfyUI-Manager/. /opt/comfyui-baked/custom_nodes/comfyui-manager/; \
+    rm -rf /opt/comfyui-baked/custom_nodes/comfyui-manager/.git /tmp/ComfyUI-Manager; \
+    test -f /opt/comfyui-baked/custom_nodes/comfyui-manager/__init__.py; \
+    python3 -c 'from importlib.metadata import version; required = ["GitPython", "PyGithub", "matrix-nio", "transformers", "huggingface-hub", "typer", "rich", "typing-extensions", "toml", "chardet", "packaging", "nh3"]; missing = [name for name in required if not any(d.metadata["Name"].lower().replace("_", "-").replace(".", "-") == name.lower().replace("_", "-").replace(".", "-") for d in __import__("importlib.metadata", fromlist=["distributions"]).distributions())]; assert not missing, "Missing baked ComfyUI-Manager dependencies: " + ", ".join(missing); print("Baked ComfyUI-Manager source and dependencies verified")'
 
 # Ensure the retired NVFP4 text encoder is not present in either ComfyUI location.
 RUN rm -f \
