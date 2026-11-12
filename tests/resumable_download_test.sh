@@ -52,3 +52,18 @@ cmp "$tmp/source.safetensors" "$out"
 validate_model_file "$out" "$expected_size" "$expected_sha"
 
 echo "Resumable download test passed."
+
+# A same-size, structurally valid but hash-corrupted completed file is quarantined and redownloaded.
+bad_out="$tmp/models/hash-mismatch.safetensors"
+cp "$tmp/source.safetensors" "$bad_out"
+printf '\\001' | dd of="$bad_out" bs=1 seek=$((expected_size - 1)) conv=notrunc status=none
+download_file "MODEL" "file://$tmp/source.safetensors" "$bad_out" "$expected_size" "$expected_sha" >/dev/null
+cmp "$tmp/source.safetensors" "$bad_out"
+find "$tmp/models" -maxdepth 1 -name 'hash-mismatch.safetensors.invalid-*' | grep -q .
+
+# A complete partial file with the wrong digest must not be promoted.
+bad_part="$tmp/models/partial-hash-mismatch.safetensors"
+cp "$tmp/source.safetensors" "$bad_part.part"
+printf '\\001' | dd of="$bad_part.part" bs=1 seek=$((expected_size - 1)) conv=notrunc status=none
+download_file "MODEL" "file://$tmp/source.safetensors" "$bad_part" "$expected_size" "$expected_sha" >/dev/null
+cmp "$tmp/source.safetensors" "$bad_part"
