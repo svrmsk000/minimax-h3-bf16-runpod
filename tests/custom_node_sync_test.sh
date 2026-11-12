@@ -11,6 +11,25 @@ export MINIMAX_H3_NODE_LOCK="$tmp/nodes.tsv"
 export COMFY="$tmp/ComfyUI"
 source "$repo_root/minimax_h3_download_setup.sh"
 
+# A matching marker must not hide an incomplete ComfyUI core on the persistent volume.
+mkdir -p "$COMFY_BAKED/comfy" "$COMFY_BAKED/comfy_extras" "$COMFY"
+printf 'print("baked core")\n' > "$COMFY_BAKED/main.py"
+printf '# core package\n' > "$COMFY_BAKED/comfy/__init__.py"
+printf '# H3 nodes\n' > "$COMFY_BAKED/comfy_extras/nodes_minimax_h3.py"
+printf '# text encoder\n' > "$COMFY_BAKED/comfy/text_encoders/minimax.py"
+mkdir -p "$COMFY_BAKED/comfy/ldm/minimax"
+printf '# model\n' > "$COMFY_BAKED/comfy/ldm/minimax/model.py"
+printf '%s\n' "$EXPECTED_CORE_COMMIT" > "$COMFY_BAKED/.minimax-h3-core-commit"
+printf '%s\n' "$EXPECTED_CORE_COMMIT" > "$COMFY/.minimax-h3-core-commit"
+mkdir -p "$VENV/bin"
+printf '#!/usr/bin/env bash\n' > "$VENV/bin/python"
+chmod +x "$VENV/bin/python"
+: > "$VENV/bin/activate"
+ensure_comfyui >/dev/null
+[ -f "$COMFY/main.py" ]
+[ -f "$COMFY/comfy_extras/nodes_minimax_h3.py" ]
+grep -q "^$EXPECTED_CORE_COMMIT$" "$COMFY/.minimax-h3-core-commit"
+
 printf '%s\t%s\t%s\n' \
   "ExampleNode" "https://example.invalid/node.git" "1111111111111111111111111111111111111111" \
   "ComfyUI-VFI" "https://example.invalid/vfi.git" "2222222222222222222222222222222222222222" \
