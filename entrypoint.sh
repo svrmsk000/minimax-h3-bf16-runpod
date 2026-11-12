@@ -51,5 +51,5 @@ else
   echo "SGLang auto-start disabled. Start it any time with: service sgmax 1 start (or choose 2/4 for a multi-GPU profile)"
 fi
 
-echo "Starting original RunPod ComfyUI services..."
+echo "Starting baked RunPod support services and the dedicated ComfyUI service..."
 exec /start.sh
