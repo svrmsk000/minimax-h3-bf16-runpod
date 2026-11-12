@@ -37,7 +37,7 @@ run_profile() {
   assert_pair --layerwise-offload-components dit,text_encoder,vae
   assert_pair --enable-torch-compile false
   assert_pair --warmup-resolutions 1344x768
-  assert_pair --warmup-num-frames 24
+  assert_pair --warmup-num-frames 124
   assert_pair --layerwise-resident-layers "video_vae=$expected_video_vae"
   assert_pair --host 0.0.0.0
   assert_pair --port 30010
