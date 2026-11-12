@@ -19,7 +19,7 @@ A 32 GB GPU does not mean the full BF16 weights fit entirely in VRAM. Actual gen
 GitHub Actions builds the legacy image from `main` and the dedicated RTX 5090 image from `rtx5090-comfyui-0.42.1`:
 
 - Ada (compute capability 8.9; RTX 40/L40/L40S): `ghcr.io/svrmsk000/minimax-h3-bf16-runpod:cuda13-ada`
-- Blackwell legacy image (compute capability 12.0): `ghcr.io/svrmsk000/minimax-h3-bf16-runpod:cuda13-blackwell` (ComfyUI v0.34.0)
+- Blackwell image built by this feature branch (compute capability 12.0): `ghcr.io/svrmsk000/minimax-h3-bf16-runpod:cuda13-blackwell-comfyui-service-manager` (pinned ComfyUI core and image-baked Manager).
 - RTX 5090 image (compute capability 12.0; ComfyUI v0.42.1): `ghcr.io/svrmsk000/minimax-h3-bf16-runpod:cuda13-rtx5090-comfyui-0.42.1` (ComfyUI only)
 - RTX 5090 + SGLang image (ComfyUI v0.42.1): `ghcr.io/svrmsk000/minimax-h3-bf16-runpod:cuda13-rtx5090-comfyui-0.42.1-sglang`
 
@@ -110,7 +110,7 @@ The SGLang server supports one-, two-, and four-GPU Ref2VA profiles. All profile
 - Twelve managed workflow JSONs, including FL2VA, Ref2VA, audio-sync, five-seed Ref2VA Seed Hunter, and Seed Hunter upscale/continuation
 - Existing prompt-formula and reference resources under `resources/`
 
-Large model files are downloaded on pod startup, not stored in this repository or baked into the image.
+Large model files are downloaded manually after startup with `/opt/minimax-h3/download_minimax_h3_models.sh`; they are not stored in this repository or baked into the image.
 
 ## Sample media
 
