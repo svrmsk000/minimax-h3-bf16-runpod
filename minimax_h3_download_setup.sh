@@ -243,8 +243,18 @@ ensure_comfyui() {
   fi
 
   if [ ! -x "$VENV/bin/python" ]; then
-    echo "FATAL: ComfyUI CUDA 13 Python environment is missing: $VENV/bin/python" >&2
-    echo "The environment must be preinstalled in the Docker image; startup does not create or install it." >&2
+    local baked_venv="/opt/comfyui-venv"
+    if [ ! -x "$baked_venv/bin/python" ]; then
+      echo "FATAL: Baked ComfyUI CUDA 13 Python environment is missing: $baked_venv/bin/python" >&2
+      echo "The Docker image is incomplete; startup will not create or install a Python environment." >&2
+      return 1
+    fi
+    echo "Restoring the image-baked ComfyUI Python environment into $VENV (copy only; no installation)."
+    mkdir -p "$VENV"
+    cp -a "$baked_venv/." "$VENV/"
+  fi
+  if [ ! -x "$VENV/bin/python" ]; then
+    echo "FATAL: Could not restore the baked ComfyUI Python environment at $VENV." >&2
     return 1
   fi
   source "$VENV/bin/activate"
@@ -1040,10 +1050,11 @@ start_deferred_model_download() {
   echo "Background $deferred_name downloader started as PID $!."
 }
 
+setup_complete=0
+
 main() {
   local -a foreground_downloads
   local -a background_downloads
-  local setup_complete=0
   local readiness_detail
 
   echo "=== MiniMax H3 cold-start setup starting ==="
