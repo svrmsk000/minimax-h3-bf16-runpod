@@ -209,6 +209,12 @@ ensure_comfyui() {
   if [ -f "$COMFY/.minimax-h3-core-commit" ]; then
     installed_commit="$(cat "$COMFY/.minimax-h3-core-commit")"
   fi
+  if [ "$installed_commit" = "$EXPECTED_CORE_COMMIT" ] \
+    && { [ ! -f "$COMFY/main.py" ] || [ ! -f "$COMFY/comfy/__init__.py" ] \
+      || [ ! -f "$COMFY/comfy_extras/nodes_minimax_h3.py" ]; }; then
+    echo "WARNING: Core marker matches but required ComfyUI files are missing; restoring the pinned core."
+    installed_commit=""
+  fi
   if [ "$installed_commit" != "$EXPECTED_CORE_COMMIT" ]; then
     echo "Installing pinned ComfyUI core $EXPECTED_CORE_COMMIT."
     for entry in "$COMFY"/* "$COMFY"/.[!.]*; do
@@ -277,14 +283,22 @@ ensure_comfyui_manager() {
   local staging="$COMFY/custom_nodes/comfyui-manager.minimax-h3-part"
   local backup
 
-  if [ -f "$manager_dir/__init__.py" ]; then
-    echo "Ready custom node ComfyUI-Manager"
-    return 0
-  fi
+  local expected_commit="${COMFYUI_MANAGER_COMMIT:-}"
 
-  if [ ! -f "$baked_manager/__init__.py" ]; then
+  if [ ! -f "$baked_manager/__init__.py" ] || [ ! -s "$baked_manager/.minimax-h3-managed-commit" ]; then
     echo "FATAL: Baked ComfyUI-Manager source is missing: $baked_manager" >&2
     return 1
+  fi
+  if [ -n "$expected_commit" ] \
+    && [ "$(tr -d '[:space:]' < "$baked_manager/.minimax-h3-managed-commit")" != "$expected_commit" ]; then
+    echo "FATAL: Baked ComfyUI-Manager commit does not match expected $expected_commit." >&2
+    return 1
+  fi
+  if [ -f "$manager_dir/__init__.py" ] \
+    && [ -s "$manager_dir/.minimax-h3-managed-commit" ] \
+    && { [ -z "$expected_commit" ] || [ "$(tr -d '[:space:]' < "$manager_dir/.minimax-h3-managed-commit")" = "$expected_commit" ]; }; then
+    echo "Ready custom node ComfyUI-Manager (${expected_commit:-managed})"
+    return 0
   fi
 
   if [ -e "$manager_dir" ]; then
@@ -338,6 +352,8 @@ ensure_pixaroma_h3() {
   local backup
 
   if [ -f "$target/nodes/node_h3_audio_sync.py" ] \
+    && [ -s "$target/.minimax-h3-managed-commit" ] \
+    && [ "$(tr -d '[:space:]' < "$target/.minimax-h3-managed-commit")" = "$PIXAROMA_COMMIT" ] \
     && grep -q 'PixaromaH3AudioSync' "$target/nodes/node_h3_audio_sync.py"; then
     echo "Ready NODE      ComfyUI-Pixaroma MiniMax H3 support"
     return 0
@@ -491,17 +507,33 @@ validate_installed_workflows() {
     expected_count=12
     include_seed_hunter=1
   fi
-  python - "$workflow_root" "$expected_count" "$include_seed_hunter" <<'PY_WORKFLOWS'
+  python - "$COMFY" "$BUNDLE_ROOT/asset-manifest.tsv" "$GPU_FAMILY" "$expected_count" "$include_seed_hunter" <<'PY_WORKFLOWS'
 import json
 import pathlib
 import sys
 
-root = pathlib.Path(sys.argv[1])
-expected_count = int(sys.argv[2])
-include_seed_hunter = sys.argv[3] == "1"
-files = sorted(root.rglob("*.json"))
+comfy = pathlib.Path(sys.argv[1])
+manifest = pathlib.Path(sys.argv[2])
+gpu_family = sys.argv[3]
+expected_count = int(sys.argv[4])
+include_seed_hunter = sys.argv[5] == "1"
+files = []
+for raw in manifest.read_text(encoding="utf-8").splitlines():
+    if not raw or raw.startswith("#"):
+        continue
+    fields = raw.split("\\t")
+    if len(fields) < 4 or fields[0] != "workflow":
+        continue
+    families = fields[4] if len(fields) > 4 else "all"
+    if families != "all" and gpu_family not in families.split(","):
+        continue
+    files.append(comfy / fields[2])
 if len(files) != expected_count:
-    raise SystemExit(f"expected {expected_count} MiniMax H3 workflows, found {len(files)}")
+    raise SystemExit(f"expected {expected_count} manifest workflows for {gpu_family}, found {len(files)}")
+missing = [str(path) for path in files if not path.is_file()]
+if missing:
+    raise SystemExit(f"installed MiniMax H3 workflow files are missing: {missing}")
+root = comfy / "user/default/workflows/MiniMax H3"
 
 required_models = {
     "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
@@ -663,8 +695,11 @@ prepare_local_models() {
     expected="${DOWNLOAD_SIZES[$index]}"
     mkdir -p "$(dirname "$out")"
 
-    if [ -e "$out" ] && ! validate_model_file "$out" "$expected" "${DOWNLOAD_SHA256[$index]}"; then
-      quarantine_invalid_file "$out" "completed model"
+    if [ -e "$out" ]; then
+      if ! validate_model_file "$out" "$expected" "${DOWNLOAD_SHA256[$index]}" \
+        || [ "$(sha256_file "$out")" != "${DOWNLOAD_SHA256[$index]}" ]; then
+        quarantine_invalid_file "$out" "completed model with invalid structure or SHA256"
+      fi
     fi
 
     if [ -e "$part" ]; then
@@ -880,6 +915,12 @@ download_file() {
     echo "ERROR: Downloaded file failed exact-size or safetensors validation: $name" >&2
     return 1
   fi
+  actual_sha256="$(sha256_file "$part")"
+  if [ "$actual_sha256" != "$expected_sha256" ]; then
+    echo "ERROR: Downloaded file failed SHA256 validation: $name" >&2
+    quarantine_invalid_file "$part" "download with SHA256 mismatch"
+    return 1
+  fi
   mv "$part" "$out"
 
   now=$(date +%s)
@@ -1087,7 +1128,7 @@ main() {
   ensure_sglang_h3_node
   ensure_pixaroma_h3
   ensure_seed_hunter_nodes
-  python -m py_compile \
+  "$VENV/bin/python" -m py_compile \
     "$COMFY/comfy_extras/nodes_minimax_h3.py" \
     "$COMFY/comfy/text_encoders/minimax.py" \
     "$COMFY/custom_nodes/ComfyUI-Pixaroma/nodes/node_h3_audio_sync.py" \
