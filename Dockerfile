@@ -206,4 +206,7 @@ RUN set -eux; \
     test -f /opt/comfyui-baked/custom_nodes/ComfyUI-Pixaroma/nodes/node_h3_audio_sync.py; \
     test -x /opt/comfyui-venv/bin/python; \
     test -x /opt/minimax-h3/download_minimax_h3_models.sh; \
+    cp -a /opt/comfyui-venv /tmp/comfyui-venv-relocation-test; \
+    /tmp/comfyui-venv-relocation-test/bin/python -c "import pathlib, sys, torch; assert pathlib.Path(sys.prefix).resolve() == pathlib.Path('/tmp/comfyui-venv-relocation-test').resolve(), sys.prefix; assert torch.version.cuda == '13.0', torch.version.cuda; print('Relocated ComfyUI venv verified')"; \
+    rm -rf /tmp/comfyui-venv-relocation-test; \
     /opt/comfyui-venv/bin/python -c "import torch; assert torch.version.cuda == '13.0', torch.version.cuda; import sys; assert sys.version_info >= (3, 12); print('Final ComfyUI runtime payload verified')";
